@@ -527,7 +527,15 @@ What works is closing the panel's own window. The panel lives in `TextInputHost.
 class=Windows.UI.Core.CoreWindow  vis=True  cloaked=2  title='Windows Input Experience'
 ```
 
-The signal that actually changes is DWM cloaking — `DWMWA_CLOAKED` is `2` (cloaked by the shell) while hidden and `0` while shown. So after the toggle, the app watches for up to 1.5 seconds; if the panel is still uncloaked it posts `WM_CLOSE`/`SC_CLOSE` to that window directly. This runs on a background thread, because the input loop ticks every 8 ms and must never wait on the shell.
+The signal that actually changes is DWM cloaking — `DWMWA_CLOAKED` is `2` (cloaked by the shell) while hidden and `0` while shown. So after the toggle the app watches the panel for about 2.4 seconds, on a background thread because the input loop ticks every 8 ms and must never wait on the shell.
+
+**Dismissal is escalated**, because a UWP-hosted window is free to ignore a polite request and posting `WM_CLOSE` alone was not enough in practice:
+
+1. `SC_CLOSE` and `WM_CLOSE` posted to the panel's window.
+2. `Escape` posted **to that window** — not to whatever has focus, which is what made the earlier attempt dangerous.
+3. `ShowWindow(SW_HIDE)` as a last resort. This makes the panel go away for certain, but Windows still believes it is open, so it is only reached after the polite options have failed.
+
+Every step, and a snapshot of every window actually on screen at the moment voice typing was switched off, is written to **`%AppData%\XboxControllerTool\voice-typing.log`**. This behaviour cannot be reproduced in a test — it needs a real machine, a microphone and someone speaking — so the log is what turns "it still does not close" into a named window that ignored a named message. The log is capped at 256 KB and is safe to delete.
 
 ## Windows' Own Gamepad Navigation
 
