@@ -4,6 +4,7 @@ using XboxControllerTool.Configuration;
 using XboxControllerTool.ConsoleUi;
 using XboxControllerTool.ConsoleUi.Screens;
 using XboxControllerTool.Core;
+using XboxControllerTool.Diagnostics;
 using XboxControllerTool.Input;
 using XboxControllerTool.Notifications;
 using XboxControllerTool.Simulation;
@@ -12,6 +13,18 @@ using XboxControllerTool.Windows.RawInput;
 
 TryConfigureConsole();
 Console.Title = "XboxControllerTool";
+
+var errors = ErrorReporter.CreateDefault();
+
+// Nothing may reach the default unhandled-exception handler, which prints an uncoloured stack
+// trace and kills the process before the user can read it.
+AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+{
+    if (args.ExceptionObject is Exception exception)
+    {
+        errors.ReportFatal("unexpected failure", exception);
+    }
+};
 
 var settingsRepository = SettingsRepository.CreateDefault();
 var settings = settingsRepository.Load();
@@ -75,7 +88,8 @@ var appLoop = new AppLoop(
     gameFocusMonitor,
     customButtons,
     settings,
-    appState);
+    appState,
+    errors);
 
 using var cancellationTokenSource = new CancellationTokenSource();
 Console.CancelKeyPress += (_, args) =>
@@ -84,6 +98,8 @@ Console.CancelKeyPress += (_, args) =>
     cancellationTokenSource.Cancel();
 };
 
+var exitCode = 0;
+
 try
 {
     await appLoop.RunAsync(cancellationTokenSource.Token);
@@ -91,16 +107,39 @@ try
 catch (OperationCanceledException)
 {
 }
+catch (Exception ex)
+{
+    errors.ReportFatal("the application stopped", ex);
+    exitCode = 1;
+}
 finally
 {
-    // Never leave an injected modifier key held down after the process exits.
-    customButtons.ReleaseModifiers();
-    settings.Window = windowPlacementStore.Capture(consoleWindow.Handle);
-    settingsRepository.Save(settings);
-    Console.CursorVisible = true;
+    Shutdown();
 }
 
-return;
+return exitCode;
+
+void Shutdown()
+{
+    // Each step is independent: a failure in one must not skip the others, and releasing held
+    // modifier keys matters most because they would otherwise stay stuck down after exit.
+    RunSafely("releasing held keys", customButtons.ReleaseModifiers);
+    RunSafely("saving window placement", () => settings.Window = windowPlacementStore.Capture(consoleWindow.Handle));
+    RunSafely("saving settings", () => settingsRepository.Save(settings));
+    RunSafely("restoring the cursor", () => Console.CursorVisible = true);
+}
+
+void RunSafely(string context, Action step)
+{
+    try
+    {
+        step();
+    }
+    catch (Exception ex)
+    {
+        errors.Report(context, ex);
+    }
+}
 
 static void TryConfigureConsole()
 {

@@ -14,6 +14,9 @@ public sealed class HomeScreen : ListMenuScreen
     private const int StickBadgeWidth = 12;
     private const int StickActionWidth = 24;
 
+    /// <summary>Caps how many custom mappings the dashboard lists, so its height stays bounded.</summary>
+    private const int MaxMappedRows = 3;
+
     private static readonly (string Button, string Action)[] ControlMap =
     [
         (ControllerButton.A, "Left Click"),
@@ -104,12 +107,22 @@ public sealed class HomeScreen : ListMenuScreen
         {
             lines.Add(Panel.Blank());
 
-            foreach (var button in mapped)
+            // The dashboard has a fixed row budget, so a long mapping list is summarised here
+            // rather than pushing the menu off the bottom of the window.
+            var shown = mapped.Count > MaxMappedRows ? MaxMappedRows - 1 : mapped.Count;
+
+            foreach (var button in mapped.Take(shown))
             {
                 lines.Add(Panel.Row(
                 [
                     .. ControllerButton.Cell(button.Label, _customButtons.DescribeMapping(button.Id), ButtonBadgeWidth, Panel.ContentWidth - ButtonBadgeWidth)
                 ]));
+            }
+
+            if (mapped.Count > shown)
+            {
+                lines.Add(Panel.Row(new ConsoleSegment(
+                    $"+ {mapped.Count - shown} more in Settings > Custom Buttons", ConsoleTheme.Label)));
             }
         }
 

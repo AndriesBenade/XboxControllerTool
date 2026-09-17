@@ -1,6 +1,7 @@
 using XboxControllerTool.Configuration;
 using XboxControllerTool.ConsoleUi;
 using XboxControllerTool.Core;
+using XboxControllerTool.Diagnostics;
 using XboxControllerTool.Input;
 using XboxControllerTool.Notifications;
 using XboxControllerTool.Windows;
@@ -13,6 +14,7 @@ public sealed class AppLoop
     private static readonly TimeSpan MenuRefreshInterval = TimeSpan.FromMilliseconds(100);
     private const int XInputSlotCount = 4;
     private const int GameFocusCheckTickInterval = 4;
+    private const int MaxConsecutiveFailures = 20;
 
     private readonly ControllerManager _controllerManager;
     private readonly ControllerSelectionService _selectionService;
@@ -24,6 +26,7 @@ public sealed class AppLoop
     private readonly CustomButtonService _customButtons;
     private readonly AppSettings _settings;
     private readonly AppState _appState;
+    private readonly ErrorReporter _errors;
 
     private readonly GamepadButton[] _previousSlotButtons = new GamepadButton[XInputSlotCount];
     private readonly bool[] _previousConnected = new bool[XInputSlotCount];
@@ -33,6 +36,7 @@ public sealed class AppLoop
     private DateTime _lastMenuRenderUtc = DateTime.MinValue;
     private bool? _observedMinimized;
     private int _tickCounter;
+    private int _consecutiveFailures;
 
     public AppLoop(
         ControllerManager controllerManager,
@@ -44,7 +48,8 @@ public sealed class AppLoop
         GameFocusMonitor gameFocusMonitor,
         CustomButtonService customButtons,
         AppSettings settings,
-        AppState appState)
+        AppState appState,
+        ErrorReporter errors)
     {
         _controllerManager = controllerManager;
         _selectionService = selectionService;
@@ -56,6 +61,7 @@ public sealed class AppLoop
         _customButtons = customButtons;
         _settings = settings;
         _appState = appState;
+        _errors = errors;
 
         _selectionService.SelectionChanged += OnSelectionChanged;
     }
@@ -63,12 +69,58 @@ public sealed class AppLoop
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         Console.CursorVisible = false;
-        _navigator.Render(force: true);
+        TryRecoverDisplay();
 
         using var timer = new PeriodicTimer(PollInterval);
         while (!_navigator.ShouldExit && await timer.WaitForNextTickAsync(cancellationToken))
         {
+            if (!TryTick())
+            {
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Runs one poll, reporting and absorbing a failure so a transient problem - a console resized
+    /// mid-render, a device pulled out - does not take the application down. A fault that repeats
+    /// every tick is not transient, so the loop gives up rather than spinning on it forever.
+    /// </summary>
+    private bool TryTick()
+    {
+        try
+        {
             Tick();
+            _consecutiveFailures = 0;
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _consecutiveFailures++;
+
+            if (_consecutiveFailures >= MaxConsecutiveFailures)
+            {
+                _errors.ReportFatal($"input loop failed {_consecutiveFailures} times in a row", ex);
+                return false;
+            }
+
+            _errors.Report("input loop", ex);
+            _notifications.ShowTransient("Error", ErrorReporter.Describe(ex), NotificationKind.Error);
+            TryRecoverDisplay();
+            return true;
+        }
+    }
+
+    private void TryRecoverDisplay()
+    {
+        try
+        {
+            _navigator.Render(force: true);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Rendering is often what failed in the first place; reporting is enough here.
+            _errors.Report("redraw after error", ex);
         }
     }
 

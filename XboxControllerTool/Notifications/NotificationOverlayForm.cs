@@ -114,6 +114,7 @@ internal sealed class NotificationOverlayForm : Form
     {
         NotificationKind.Success => Color.FromArgb(76, 200, 120),
         NotificationKind.Warning => Color.FromArgb(230, 170, 60),
+        NotificationKind.Error => Color.FromArgb(220, 60, 60),
         _ => theme.NotificationAccent
     };
 

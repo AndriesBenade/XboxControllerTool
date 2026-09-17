@@ -11,8 +11,12 @@ public static class UiDimensions
     /// <summary>One spare column so the renderer, which writes to <c>WindowWidth - 1</c>, still covers a full panel row.</summary>
     private const int RendererSpareColumn = 1;
 
-    /// <summary>Tallest screen (home: header, status, controls, menu, hint bar) plus one spare row.</summary>
-    private const int TallestScreenRows = 35;
+    /// <summary>
+    /// Tallest screen (home with its custom-mapping rows filled) plus one spare row.
+    /// <c>ScreenHeightTests</c> fails the build if any screen outgrows this, because a screen taller
+    /// than the console buffer used to be sized from it would be clipped.
+    /// </summary>
+    private const int TallestScreenRows = 39;
 
     public const int RequiredColumns = Panel.Width + SideMargin + RendererSpareColumn;
     public const int PreferredRows = TallestScreenRows;

@@ -508,6 +508,19 @@ Everything that talks to XInput, `SendInput`, or Win32 windowing is intentionall
 - **The console won't come to the foreground** — Windows' foreground-lock behavior can, in some configurations, refuse focus to background processes; the app works around this with the standard `AttachThreadInput` technique, but a fully locked-down desktop policy can still block it. The window is still made topmost even if focus itself is denied.
 - **Previously selected controller shows Unavailable after a reboot** — see the [Controller Selection](#controller-selection) limitation above; this is an XInput identity limitation, not silently switching controllers.
 
+## Error Handling
+
+Failures are made visible rather than silently swallowed or allowed to kill the process:
+
+- **Errors print in red**, using `ConsoleColor.Red` directly rather than a theme colour, so they cannot be mistaken for ordinary output whatever theme is active.
+- **A red error toast** appears even while the console is minimized, which is its normal state.
+- **Everything is appended to `%AppData%\XboxControllerTool\errors.log`** with a timestamp and full stack trace, because the console is usually not being watched.
+- **A failing frame does not end the session.** The input loop reports the error, shows the toast, forces a redraw and carries on. Only a fault that repeats 20 ticks in a row is treated as unrecoverable, at which point the app reports it as fatal and exits cleanly instead of spinning.
+- **Shutdown steps are independent.** Releasing held modifier keys, saving window placement and saving settings each run even if an earlier one failed — a stuck modifier key after exit would be far worse than a lost window size.
+- **Nothing reaches the default unhandled-exception handler**, which would otherwise print an uncoloured stack trace and terminate before it could be read.
+
+Rendering itself is treated as unable to fail fatally. The console can be resized — or have its handle taken away — between any two frames, so a screen taller than the buffer is clipped, and every console call is guarded. This is a fixed bug, not a theoretical concern: a screen one row taller than the window it was sized for used to throw `ArgumentOutOfRangeException` out of `SetCursorPosition` and kill the app at startup. `ScreenHeightTests` now fails the build if any screen outgrows `UiDimensions.PreferredRows`, including the dashboard with its custom-mapping rows filled, and the dashboard summarises a long mapping list as `+ N more` rather than growing without bound.
+
 ## Known Windows Limitations
 
 - XInput exposes no persistent per-controller hardware ID; specific-controller selection is best-effort via slot + capability fingerprint (see above).
