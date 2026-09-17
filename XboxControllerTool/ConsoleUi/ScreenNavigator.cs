@@ -33,6 +33,7 @@ public sealed class ScreenNavigator
             _renderer.Invalidate();
         }
 
+        LayoutMetrics.Refresh();
         _renderer.Render(Current.BuildLines());
     }
 

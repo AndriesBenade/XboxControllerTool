@@ -9,7 +9,7 @@ using XboxControllerTool.Notifications;
 using XboxControllerTool.Simulation;
 using XboxControllerTool.Windows;
 
-TryConfigureConsoleWindow();
+TryConfigureConsole();
 Console.Title = "XboxControllerTool";
 
 var settingsRepository = SettingsRepository.CreateDefault();
@@ -31,18 +31,26 @@ var audioFeedbackPlayer = new AudioFeedbackPlayer(settings);
 var desktopInput = new DesktopInputController(settings, mouse, keyboard, onScreenKeyboard, defaultBrowser, notificationManager, audioFeedbackPlayer);
 
 var consoleWindow = new ConsoleWindowController();
+var fontController = new ConsoleFontController();
+var startupManager = new StartupManager();
+var uiPreferences = new UiPreferences(settings, settingsRepository, fontController, consoleWindow, startupManager);
+uiPreferences.ApplySavedPreferences();
+
 var windowPlacementStore = new WindowPlacementStore();
 windowPlacementStore.ApplySize(consoleWindow.Handle, settings.Window);
 consoleWindow.CenterOnScreen();
 consoleWindow.Minimize();
 
 var appState = new AppState();
+var gameFocusMonitor = new GameFocusMonitor(new ForegroundWindowWatcher(), new GameDetector());
+var customButtons = new CustomButtonService(settings, settingsRepository, keyboard);
 
 var statusScreen = new StatusScreen(appState, settings);
-var settingsScreen = new SettingsScreen(settings, settingsRepository);
+var customButtonsScreen = new CustomButtonsScreen(customButtons);
+var settingsScreen = new SettingsScreen(settings, settingsRepository, uiPreferences, customButtonsScreen);
 var controllerSelectionScreen = new ControllerSelectionScreen(selectionService, appState);
 
-var homeScreen = new HomeScreen(appState,
+var homeScreen = new HomeScreen(appState, customButtons,
 [
     new MenuDestination("SETTINGS", "Speed, dead zones and alerts", settingsScreen),
     new MenuDestination("CONTROLLER", "Choose which pad drives the desktop", controllerSelectionScreen),
@@ -51,7 +59,19 @@ var homeScreen = new HomeScreen(appState,
 ]);
 
 var navigator = new ScreenNavigator(homeScreen);
-var appLoop = new AppLoop(controllerManager, selectionService, desktopInput, consoleWindow, navigator, notificationManager, appState);
+uiPreferences.SurfaceInvalidated += () => navigator.Render(force: true);
+
+var appLoop = new AppLoop(
+    controllerManager,
+    selectionService,
+    desktopInput,
+    consoleWindow,
+    navigator,
+    notificationManager,
+    gameFocusMonitor,
+    customButtons,
+    settings,
+    appState);
 
 using var cancellationTokenSource = new CancellationTokenSource();
 Console.CancelKeyPress += (_, args) =>
@@ -69,6 +89,8 @@ catch (OperationCanceledException)
 }
 finally
 {
+    // Never leave an injected modifier key held down after the process exits.
+    customButtons.ReleaseModifiers();
     settings.Window = windowPlacementStore.Capture(consoleWindow.Handle);
     settingsRepository.Save(settings);
     Console.CursorVisible = true;
@@ -76,16 +98,11 @@ finally
 
 return;
 
-static void TryConfigureConsoleWindow()
+static void TryConfigureConsole()
 {
     try
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
-        Console.SetWindowSize(Math.Min(84, Console.LargestWindowWidth), Math.Min(38, Console.LargestWindowHeight));
-        Console.SetBufferSize(Console.WindowWidth, Console.WindowHeight);
-        Console.BackgroundColor = ConsoleTheme.Background;
-        Console.ForegroundColor = ConsoleTheme.Text;
-        Console.Clear();
         Console.CursorVisible = false;
     }
     catch (Exception ex) when (ex is ArgumentOutOfRangeException or PlatformNotSupportedException or IOException)

@@ -53,6 +53,8 @@ internal static partial class NativeInput
 
     internal const ushort VkLeftWindows = 0x5B;
     internal const ushort VkH = 0x48;
+    internal const ushort VkControl = 0x11;
+    internal const ushort VkShift = 0x10;
     internal const ushort VkMenu = 0x12;
     internal const ushort VkEscape = 0x1B;
     internal const ushort VkBack = 0x08;

@@ -1,3 +1,4 @@
+using XboxControllerTool.Application;
 using XboxControllerTool.Configuration;
 
 namespace XboxControllerTool.ConsoleUi.Screens;
@@ -10,19 +11,41 @@ public sealed class SettingsScreen : ListMenuScreen
         string Label,
         Func<bool, ConsoleSegment[]> RenderControl,
         Action<int>? Adjust,
-        Action? Activate = null);
+        Action? Activate = null,
+        IScreen? Target = null);
 
     private readonly AppSettings _settings;
     private readonly SettingsRepository _repository;
+    private readonly UiPreferences _uiPreferences;
     private readonly List<SettingRow> _rows;
 
-    public SettingsScreen(AppSettings settings, SettingsRepository repository)
+    public SettingsScreen(AppSettings settings, SettingsRepository repository, UiPreferences uiPreferences, IScreen customButtonsScreen)
     {
         _settings = settings;
         _repository = repository;
+        _uiPreferences = uiPreferences;
 
         _rows =
         [
+            new SettingRow("Custom Buttons",
+                _ => SettingControl.Action("Map spare controller buttons"),
+                null,
+                null,
+                customButtonsScreen),
+            new SettingRow("Theme",
+                _ => SettingControl.Cycle(_uiPreferences.CurrentTheme.Name.ToUpperInvariant()),
+                _uiPreferences.CycleTheme),
+            new SettingRow("Font Size",
+                _ => _uiPreferences.FontSizeSupported
+                    ? SettingControl.Cycle(FormatFontSize(_settings.FontSize))
+                    : [.. SettingControl.Cycle(FormatFontSize(_settings.FontSize)), new ConsoleSegment("  console host only", ConsoleTheme.Label)],
+                _uiPreferences.CycleFontSize),
+            new SettingRow("Start With Windows",
+                _ => SettingControl.Toggle(_uiPreferences.IsStartWithWindowsEnabled()),
+                _ => _uiPreferences.ToggleStartWithWindows()),
+            new SettingRow("Pause In Games",
+                _ => SettingControl.Toggle(_settings.PauseOnFocusedGame),
+                _ => _settings.PauseOnFocusedGame = !_settings.PauseOnFocusedGame),
             new SettingRow("Mouse Speed",
                 focused => SettingControl.Gauge(_settings.MouseSensitivity, 1, 40, _settings.MouseSensitivity.ToString("0.0"), focused),
                 direction => _settings.MouseSensitivity += direction * 1.0),
@@ -35,9 +58,6 @@ public sealed class SettingsScreen : ListMenuScreen
             new SettingRow("Precision Scroll",
                 focused => SettingControl.Gauge(_settings.ScrollPrecisionMultiplier, 0.05, 0.9, $"{_settings.ScrollPrecisionMultiplier * 100:0}%", focused),
                 direction => _settings.ScrollPrecisionMultiplier += direction * 0.05),
-            new SettingRow("Fast Speed",
-                focused => SettingControl.Gauge(_settings.BoostMultiplier, 1.1, 4.0, $"{_settings.BoostMultiplier:0.0}x", focused),
-                direction => _settings.BoostMultiplier += direction * 0.1),
             new SettingRow("Stick Dead Zone",
                 focused => SettingControl.Gauge(_settings.StickDeadZone, 0.02, 0.5, $"{_settings.StickDeadZone * 100:0}%", focused),
                 direction => _settings.StickDeadZone += direction * 0.02),
@@ -70,7 +90,7 @@ public sealed class SettingsScreen : ListMenuScreen
         var lines = new List<ConsoleLine>(AppShell.Header());
 
         lines.Add(Panel.Top("SETTINGS"));
-        lines.Add(Panel.Blank());
+        LayoutMetrics.PanelPad(lines);
 
         for (var i = 0; i < _rows.Count; i++)
         {
@@ -85,7 +105,7 @@ public sealed class SettingsScreen : ListMenuScreen
                 row.Adjust is null ? ControllerButton.A : ControllerButton.LeftRight));
         }
 
-        lines.Add(Panel.Blank());
+        LayoutMetrics.PanelPad(lines);
         lines.Add(Panel.Bottom());
 
         lines.AddRange(AppShell.Footer(
@@ -99,7 +119,14 @@ public sealed class SettingsScreen : ListMenuScreen
 
     protected override NavigationCommand OnConfirm(int index)
     {
-        _rows[index].Activate?.Invoke();
+        var row = _rows[index];
+
+        if (row.Target is not null)
+        {
+            return NavigationCommand.Push(row.Target);
+        }
+
+        row.Activate?.Invoke();
         return NavigationCommand.None;
     }
 
@@ -118,15 +145,23 @@ public sealed class SettingsScreen : ListMenuScreen
         _settings.ScrollSensitivity = defaults.ScrollSensitivity;
         _settings.PrecisionMultiplier = defaults.PrecisionMultiplier;
         _settings.ScrollPrecisionMultiplier = defaults.ScrollPrecisionMultiplier;
-        _settings.BoostMultiplier = defaults.BoostMultiplier;
         _settings.StickDeadZone = defaults.StickDeadZone;
         _settings.ScrollDeadZone = defaults.ScrollDeadZone;
         _settings.MouseAccelerationEnabled = defaults.MouseAccelerationEnabled;
         _settings.NotificationDurationMs = defaults.NotificationDurationMs;
         _settings.NotificationPosition = defaults.NotificationPosition;
         _settings.AudioFeedbackEnabled = defaults.AudioFeedbackEnabled;
+        _settings.PauseOnFocusedGame = defaults.PauseOnFocusedGame;
         _repository.Save(_settings);
     }
+
+    private static string FormatFontSize(ConsoleFontSize size) => size switch
+    {
+        ConsoleFontSize.Small => "SMALL",
+        ConsoleFontSize.Large => "LARGE",
+        ConsoleFontSize.ExtraLarge => "EXTRA LARGE",
+        _ => "MEDIUM"
+    };
 
     private static TEnum CycleEnum<TEnum>(TEnum current, int direction) where TEnum : struct, Enum
     {

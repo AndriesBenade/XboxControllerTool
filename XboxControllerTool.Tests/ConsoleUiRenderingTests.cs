@@ -3,6 +3,7 @@ using XboxControllerTool.Configuration;
 using XboxControllerTool.ConsoleUi;
 using XboxControllerTool.ConsoleUi.Screens;
 using XboxControllerTool.Input;
+using XboxControllerTool.Windows;
 
 namespace XboxControllerTool.Tests;
 
@@ -30,7 +31,8 @@ public class ConsoleUiRenderingTests : IDisposable
         }
     }
 
-    public static TheoryData<string> ScreenNames() => new("home", "settings", "controller", "controller-waiting", "status");
+    public static TheoryData<string> ScreenNames() =>
+        new("home", "settings", "controller", "controller-waiting", "status", "custom-buttons", "button-mapping");
 
     [Theory]
     [MemberData(nameof(ScreenNames))]
@@ -96,7 +98,7 @@ public class ConsoleUiRenderingTests : IDisposable
     [Fact]
     public void EveryScreenEndsWithAContextualHintBar()
     {
-        foreach (var screenName in new[] { "home", "settings", "controller", "controller-waiting", "status" })
+        foreach (var screenName in new[] { "home", "settings", "controller", "controller-waiting", "status", "custom-buttons", "button-mapping" })
         {
             var lastLine = Flatten(Render(screenName)[^1]);
             Assert.Contains("[ ", lastLine);
@@ -116,8 +118,11 @@ public class ConsoleUiRenderingTests : IDisposable
     private IReadOnlyList<ConsoleLine> Render(string screenName)
     {
         var repository = new SettingsRepository(_settingsPath);
+        var uiPreferences = new UiPreferences(_settings, repository, new ConsoleFontController(), new ConsoleWindowController(), new StartupManager());
+        var customButtons = new CustomButtonService(_settings, repository, new RecordingKeyboard());
         var statusScreen = new StatusScreen(_appState, _settings);
-        var settingsScreen = new SettingsScreen(_settings, repository);
+        var customButtonsScreen = new CustomButtonsScreen(customButtons);
+        var settingsScreen = new SettingsScreen(_settings, repository, uiPreferences, customButtonsScreen);
         var controllerScreen = new ControllerSelectionScreen(_selectionService, _appState);
 
         switch (screenName)
@@ -131,8 +136,13 @@ public class ConsoleUiRenderingTests : IDisposable
                 return controllerScreen.BuildLines();
             case "status":
                 return statusScreen.BuildLines();
+            case "custom-buttons":
+                return customButtonsScreen.BuildLines();
+            case "button-mapping":
+                customButtons.Assign((ushort)XboxControllerTool.Core.GamepadButton.RightThumb, XboxControllerTool.Simulation.KeyModifiers.Windows, "D");
+                return new ButtonMappingScreen(customButtons, (ushort)XboxControllerTool.Core.GamepadButton.RightThumb).BuildLines();
             default:
-                var home = new HomeScreen(_appState,
+                var home = new HomeScreen(_appState, customButtons,
                 [
                     new MenuDestination("SETTINGS", "Speed, dead zones and alerts", settingsScreen),
                     new MenuDestination("CONTROLLER", "Choose which pad drives the desktop", controllerScreen),

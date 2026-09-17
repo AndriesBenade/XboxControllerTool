@@ -1,6 +1,12 @@
-# Xbox Controller Mouse
+# XboxControllerTool
 
 A Windows console application that turns an Xbox / XInput-compatible controller into a wireless mouse and lightweight keyboard input device. It's built for the "laptop connected to a TV, no mouse or keyboard nearby" scenario: pick up the controller from the couch and drive the whole desktop with it.
+
+## Download
+
+**[⬇ Download XboxControllerTool 1.0.0 (Windows Installer)](https://github.com/AndriesBenade/XboxControllerTool/raw/master/Releases/XboxControllerTool-1.0.0.msi)**
+
+Run the `.msi` and you're done — no Visual Studio, no .NET SDK, no source code, nothing to copy by hand. The .NET runtime is bundled inside the installer. See [Installing](#installing-end-users).
 
 The console window itself **is** the application UI — there is no separate configuration app, and no file ever needs to be hand-edited. It's styled as a dark, controller-first dashboard rather than a plain command-line tool: a persistent header, a live status dashboard, controller-glyph button prompts, and on-screen sliders/toggles for settings. Everything (settings, controller selection, live status) is reachable with the controller alone. See [Console UI](#console-ui) for the visual design.
 
@@ -8,17 +14,20 @@ The console window itself **is** the application UI — there is no separate con
 
 - Left stick moves the mouse cursor with dead-zone filtering, an acceleration curve, and a configurable maximum speed — tuned to feel controllable from a couch rather than like a raw analog-to-pixel mapping.
 - Right stick scrolls the active window vertically, tuned for a snappy, immediate response and smooth sub-notch increments rather than choppy, infrequent jumps — especially noticeable in Precision Mode.
-- `A` / `X` map to left/right mouse click with correct press/release edge handling (holding the button does not spam clicks). Clicking the left stick sends Enter.
+- `A` / `X` map to left/right mouse click with correct press/release edge handling (holding the button does not spam clicks).
+- **Spare controller buttons can be mapped to any keyboard shortcut** (`Win+D`, `Alt+Tab`, `Ctrl+Shift+Esc`, `Alt+F4`, media keys…) entirely from the controller — and those mappings **keep working while a game is focused**. See [Custom Button Mappings](#custom-button-mappings).
 - `B` sends Backspace, held down for natural OS key-repeat, just like a physical held Backspace key.
 - `BACK` sends Alt+Left, the standard Windows/browser "navigate back" shortcut.
 - `START` is context-aware browser control rather than a fixed shortcut: opens/focuses your default browser, or sends Alt+Right (forward navigation) if it's already focused. See [Browser Control](#browser-control).
 - `LEFT BUMPER` / `RIGHT BUMPER` send Win+D (Show Desktop) / Escape.
 - `D-PAD LEFT` / `D-PAD RIGHT` move the text caret in whatever field currently has focus, also with natural key-repeat while held.
-- Holding `LEFT TRIGGER` engages a temporary, non-persistent Precision Mode that slows the cursor (and moderately slows scrolling — enough to feel deliberate without ever feeling stuck) for fine work; holding `RIGHT TRIGGER` does the opposite, a Fast Mode for covering the screen quickly.
+- Holding `LEFT TRIGGER` engages a temporary, non-persistent Precision Mode that slows the cursor (and moderately slows scrolling — enough to feel deliberate without ever feeling stuck) for fine work. `RIGHT TRIGGER` sends Enter/Return.
+- **Automatically pauses itself while a game is focused** so the controller belongs entirely to the game, and resumes the moment you Alt-Tab away — with no game list to maintain. See [Automatic Game Detection](#automatic-game-detection).
+- Installs as a normal Windows application via an MSI, can start with Windows, and ships seven UI themes plus adjustable console font size.
 - `Y` toggles the app between hidden (minimized, controller drives the desktop) and shown (restored, centred, always-on-top, controller drives the menus), restoring focus to whatever window was in front before it was shown. Minimizing or restoring the window from the taskbar does exactly the same thing, so the two stay in sync — see [Console Window Behavior](#console-window-behavior).
 - `D-PAD UP` opens the built-in Windows On-Screen Keyboard (`osk.exe`).
 - `D-PAD DOWN` toggles Windows voice typing (simulates the `Win+H` shortcut to start/stop, plus `Escape` on stop so the flyout actually closes instead of just pausing).
-- Small, always-on-top, non-activating notification toasts confirm state changes (precision mode, fast mode, app visibility, voice input, controller connect/disconnect/selection, browser, show desktop, on-screen keyboard).
+- Small, always-on-top, non-activating notification toasts confirm state changes (precision mode, game focus pause/resume, app visibility, voice input, controller connect/disconnect/selection, browser, show desktop, on-screen keyboard).
 - Supports multiple simultaneously connected controllers, with a mode to restrict control to one specific pad (useful when a second controller is being used to play a game).
 - Settings and controller selection persist between runs in `%AppData%\XboxControllerTool`.
 - The console starts minimized so it stays out of the way; desktop mouse/keyboard control is active immediately, and `Y` brings the menu up whenever it's wanted.
@@ -32,17 +41,20 @@ The console window itself **is** the application UI — there is no separate con
 | A | Left click |
 | X | Right click |
 | B | Backspace (hold to repeat) |
-| Left Stick Click | Enter |
+| Left Stick Click | *Nothing — intentionally unassigned* |
 | Back | Browser back (Alt+Left) |
 | Start | Open/focus default browser, or forward nav (Alt+Right) if already focused |
 | Y | Toggle console on top (centered) / background |
-| Left Trigger (hold) | Precision mode (slower) |
-| Right Trigger (hold) | Fast mode (faster) |
+| Left Trigger (hold) | Precision mode (slower cursor and scrolling) |
+| Right Trigger | Enter / Return |
 | Left Bumper | Show desktop (Win+D) |
 | Right Bumper | Escape |
 | D-Pad Up | Open On-Screen Keyboard |
 | D-Pad Down | Toggle voice input (dictation) |
 | D-Pad Left / Right | Move text caret left/right (hold to repeat) |
+| Right Stick Click, Guide, other spare buttons | Whatever you map them to — see [Custom Button Mappings](#custom-button-mappings) |
+
+**Left Stick Click does nothing at all** — no key, no click, no notification. Left stick *movement* still drives the mouse as normal; only the click is unassigned, deliberately, so it can't fire by accident when you push the stick.
 
 Holding both triggers at once favors Precision Mode. Controller mode is changed only from the **Controller Selection** menu — pressing `BACK` no longer has a global side effect, specifically so it can't be pressed accidentally (e.g. while playing a game with the same pad) and silently drop you back to All Controllers.
 
@@ -66,28 +78,58 @@ This mode switch is deliberate and important: while navigating the menu, the con
 - An Xbox controller or other XInput-compatible controller (wired or wireless with its receiver/Bluetooth already paired).
 - Administrator rights (the app requests elevation automatically on launch).
 
-## Installation / Build
+## Installing (end users)
 
-```
-git clone <this repository>
-cd XboxControllerTool
-dotnet build XboxControllerTool.slnx -c Release
-```
+Run **`XboxControllerTool-<version>.msi`** and follow the prompts. Nothing else is required — no Visual Studio, no .NET SDK, no runtime install, no cloning this repository, no copying DLLs. The installer is self-contained: the .NET runtime is bundled inside it.
 
-The build produces `XboxControllerTool/bin/Release/net10.0-windows/XboxControllerTool.exe`.
+The installer:
+
+- installs to `C:\Program Files\XboxControllerTool`,
+- creates Start Menu and Desktop shortcuts,
+- registers the app in *Apps & features* so it uninstalls normally,
+- **upgrades in place** — installing a newer version detects the existing installation via a stable `UpgradeCode` and replaces it rather than adding a second entry.
+
+Your settings live in `%AppData%\XboxControllerTool\settings.json`, which is outside the installation directory, so **upgrading and uninstalling both leave your configuration intact**. Delete that folder yourself if you want a clean slate.
+
+Uninstalling also removes the Windows startup task, so nothing is left behind trying to launch a deleted program.
 
 ## Running
 
-Run `XboxControllerTool.exe` directly (double-click, or from a terminal). Windows will show a UAC prompt because the app's manifest requests `requireAdministrator` — accept it to continue. If UAC is cancelled, Windows never starts the process; there is nothing further for the app to handle, and no elevation retry loop is used.
+Launch **XboxControllerTool** from the Start Menu or desktop shortcut. Windows shows a UAC prompt because the manifest requests `requireAdministrator` — accept it. If UAC is cancelled, Windows never starts the process; there is no elevation retry loop.
 
-The app starts minimized — desktop mouse/keyboard control is live immediately, and pressing `Y` on the controller brings the console up whenever you want the menu.
+Elevation is required because simulated mouse/keyboard input and window-focus changes need to reach applications system-wide, some of which are themselves elevated.
 
-Elevation is required because simulated mouse/keyboard input and window-focus changes need to reach applications system-wide, some of which may themselves be running elevated.
+The app starts **minimized**: desktop mouse/keyboard control is live immediately, and pressing `Y` on the controller brings the UI up whenever you want it.
 
+## Start With Windows
+
+**Settings → Start With Windows** toggles automatic startup at logon. No registry editing, no Startup-folder shortcuts, no config files.
+
+Because the app requires administrator rights, a plain `HKCU\...\Run` entry is the wrong mechanism — Windows cannot show a UAC prompt at logon, so an elevated app registered that way is simply skipped. Instead this registers a **Scheduled Task** (`XboxControllerTool`) that triggers *at logon* for the current user with *highest privileges*, which is the supported way to auto-start an elevated application without a logon-time prompt.
+
+The task name is fixed, and enabling uses `/F` (overwrite), so re-enabling can never create duplicate entries. The setting is stored in Windows itself — the task's existence *is* the setting — so it survives app restarts and upgrades without a config value that could drift out of sync with reality.
+
+## Building from source / creating a release
+
+Developers only. Requires the .NET 10 SDK.
+
+```powershell
+# build + test
+dotnet build XboxControllerTool.slnx -c Release
+dotnet test  XboxControllerTool.Tests -c Release
+
+# publish self-contained and package into an installer
+pwsh build\build-installer.ps1
 ```
-dotnet run --project XboxControllerTool -c Release
-```
-also works, but `dotnet.exe` itself would need to be elevated for the manifest to take effect, so launching the built `.exe` directly is the normal path.
+
+`build\build-installer.ps1` does the whole release in one step:
+
+1. reads `<Version>` from `XboxControllerTool.csproj` (the single source of version truth — the app header, the MSI's `ProductVersion` and the output filename all come from it),
+2. `dotnet publish -c Release -r win-x64 --self-contained` into `artifacts\publish`,
+3. installs the WiX build tool if it is missing (`dotnet tool install --global wix`),
+4. builds `installer\XboxControllerTool.wxs` into `artifacts\XboxControllerTool-<version>.msi`.
+
+To cut a new release, bump `<Version>` in the csproj and re-run the script. Ship the single `.msi`.
 
 ## Controller Selection
 
@@ -118,13 +160,15 @@ Settings are stored as JSON at:
 - Values outside their valid ranges (e.g. from manual editing or a future downgrade) are clamped on load.
 - An unrecognized settings version resets to defaults, so the app never crashes on an old/incompatible config format.
 
-Persisted values include mouse/scroll/precision/fast sensitivity, dead zones, mouse acceleration, notification duration/position, audio feedback on/off, controller mode and selected controller identity, and console window size. Transient state — whether precision mode, fast mode, or voice input is *currently* active, or which menu is open — is intentionally never persisted. The console window position is no longer persisted either: it is always centered on screen (see [Console Window Behavior](#console-window-behavior) below), so there is nothing meaningful to remember.
+Persisted values include mouse/scroll/precision sensitivity, dead zones, mouse acceleration, notification duration/position, audio feedback on/off, theme, font size, pause-in-games, controller mode and selected controller identity, and console window size. Transient state — whether precision mode or voice input is *currently* active, whether desktop input is paused for a game, or which menu is open — is intentionally never persisted. (Start With Windows is deliberately *not* stored here: the scheduled task in Windows is the single source of truth.) The console window position is no longer persisted either: it is always centered on screen (see [Console Window Behavior](#console-window-behavior) below), so there is nothing meaningful to remember.
 
 ## Settings
 
 All of the following are adjustable from the in-app **Settings** screen with `◀▶`, and save automatically. Each is shown as an actual control rather than raw text — a filled/empty block slider (`■■■■■□□□□□`) with its live value for numeric ranges, a filled/hollow dot for on/off toggles (`● ON` / `○ OFF`), or a `◀ value ▶` cycle for multi-choice settings — never a bare number or a config-file key:
 
-- Mouse Sensitivity, Scroll Sensitivity, Precision Sensitivity, Scroll Precision, Fast Sensitivity (sliders)
+- Custom Buttons (opens the [mapping screen](#custom-button-mappings))
+- Theme, Font Size (cycles), Start With Windows, Pause In Games (toggles)
+- Mouse Sensitivity, Scroll Sensitivity, Precision Sensitivity, Precision Scroll (sliders)
 - Stick Dead Zone, Scroll Dead Zone (sliders)
 - Mouse Acceleration (toggle)
 - Notification Time (slider), Notification Spot (cycle)
@@ -143,6 +187,116 @@ An earlier version of this feature tried to infer real state by watching for Win
 
 `D-PAD UP` launches `%SystemRoot%\System32\osk.exe`, the built-in Windows On-Screen Keyboard, via `Process.Start`. This is the standard, Microsoft-provided way to invoke it — there is no other supported API to open it programmatically, and no custom virtual keyboard is implemented. On some managed/locked-down systems `osk.exe` can be disabled by Group Policy, in which case the app reports "Unable to open On-Screen Keyboard" rather than failing silently.
 
+## Automatic Game Detection
+
+The app pauses its own desktop mouse/keyboard injection while a game is focused, so the controller belongs entirely to the game — then resumes automatically. There is **no game list to maintain**: you never add Minecraft, GTA V, Steam titles or anything else.
+
+The rule is strictly about *focus*, never about what is merely running:
+
+| Situation | Desktop controls |
+|---|---|
+| Minecraft focused | **Paused** |
+| Minecraft running, you Alt-Tab to Chrome | **Active** |
+| GTA V running in the background while you browse | **Active** |
+| Alt-Tab back into the game | **Paused** again |
+| Game closed | **Active** |
+
+While paused, the app injects nothing at all — no cursor movement, clicks, keystrokes or shortcuts — and it stops acting on `Y` too, so pressing Y in-game (jump, reload, …) does not yank you out to the desktop. Alt-Tab out and the UI is available again. **The physical controller is never disabled**; the game keeps receiving it normally, and controller polling, connection and reconnection handling all keep running.
+
+Any buttons being held when a game takes focus are released first, so a held `A` can't leave the left mouse button stuck down in the game.
+
+### How the detection actually works
+
+Windows has **no universal "is this a game" API**, so this uses focus-driven heuristics rather than pretending otherwise. On a foreground change the app resolves the foreground window's owning process (`GetForegroundWindow` → `GetWindowThreadProcessId` → `QueryFullProcessImageName`) and classifies it by two independent signals:
+
+1. **Install location** — the executable lives under a game-distribution root (`steamapps\common`, `Epic Games`, `XboxGames`, GOG, Ubisoft, EA/Origin, Riot, or a generic `\Games\` folder). This is launcher-directory detection, not a game database.
+2. **Controller runtime in use** — the process has an XInput / GameInput / DirectInput DLL loaded, i.e. it is itself consuming a gamepad. This is the signal that catches everything outside a launcher folder: Minecraft, emulators, itch.io builds, Store games.
+
+Either signal alone marks the process as a game. Processes under `%WINDIR%` and the app's own process are never classified as games.
+
+**Deliberate limitations, stated honestly:**
+
+- Full-screen alone is *not* treated as a game signal. Browsers in F11 full-screen load Direct3D and lose their title bar, so using that as a signal would pause your controls every time you watch a video full-screen — the exact opposite of what a couch utility should do.
+- A game that is both outside every known launcher folder *and* never touches a controller API (a keyboard-only indie title) will not be detected. In practice that matters little, since such a game ignores the controller anyway.
+- Anti-cheat–protected processes may refuse module enumeration; those titles are almost always in a launcher directory, so signal 1 covers them.
+- Classification is cached per process. A *positive* result is cached for the process's lifetime; a *negative* is re-checked every 5 seconds, so a game that was still loading its controller runtime when you first focused it is picked up shortly after rather than being misjudged forever.
+
+The foreground check runs roughly every 32 ms and is just two cheap Win32 calls; the expensive part (process path and module scan) only runs when focus changes to a process not already classified. The detection logic lives in dedicated services (`ForegroundWindowWatcher`, `GameDetector`, `GameFocusMonitor`) behind interfaces — not inside the controller polling loop — so additional signals can be added later without touching input handling.
+
+**Pause In Games** in Settings turns the whole behaviour off if you ever want the controls to stay live regardless.
+
+## Custom Button Mappings
+
+**Settings → Custom Buttons** lets you bind any spare controller button to a keyboard key or key combination, configured entirely with the controller — no keyboard, no mouse, no config file.
+
+```
+┌─ CUSTOM BUTTONS ───────────────────────────────────────────────────────────┐
+│  ██ [ R3 ]        Win + D                                         [ A ]    │
+│     [ GUIDE ]     Alt + Tab                                                │
+├─ DETECTION ────────────────────────────────────────────────────────────────┤
+│  Press any spare controller button to add it to this list.                 │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+Pick a button, then build the combination with toggles and pickers: `Ctrl`, `Alt`, `Shift`, `Win`, a key group (Letters / Digits / Function / Navigation / Editing / Media) and the key itself. `A` saves, `X` clears a mapping from the list. Examples that work today: `Win+D`, `Alt+Tab`, `Ctrl+Shift+Esc`, `Ctrl+C`, `Alt+F4`, `F5`, `Enter`, or media keys like Play/Pause and Volume Up.
+
+Combinations are injected as one atomic `SendInput` batch — modifiers down, key down, key up, modifiers up in reverse — so a modifier cannot be left stuck. Mappings fire **once per press** (released → pressed), never repeatedly while held, so holding a button can't spam `Alt+Tab`. Any injected modifiers are also released on shutdown.
+
+### Custom mappings keep working while a game is focused
+
+This is the point of the feature. Normal desktop injection pauses while a game is focused, but custom mappings sit on a separate path and are **not** suppressed:
+
+| While a game is focused | |
+|---|---|
+| Left stick → mouse movement | paused |
+| `A` / `X` → clicks | paused |
+| `R3` → `Win+D` | **still works** |
+| `GUIDE` → `Alt+Tab` | **still works** |
+
+So you can drop to the desktop or switch windows from the couch without closing the game or reaching for a keyboard. (They are suppressed in one place only: while XboxControllerTool's own UI is in front, so pressing a button to configure it can't also trigger it.)
+
+### Which buttons can be mapped
+
+Only buttons XInput genuinely reports and that have no built-in action:
+
+- **`R3` (right stick click)** — always listed; every XInput controller has it.
+- **`GUIDE`** — the Xbox button. XInput's public `XInputGetState` masks it out, so the app resolves the undocumented ordinal-100 export (`XInputGetStateEx`) at runtime to see it, falling back to the public function if that ever fails.
+- **Any other spare button** the driver happens to report appears automatically the first time you press it, listed with a readable label while the raw identifier is kept internally.
+
+**AGL/AGR paddles are not offered, because XInput cannot see them.** On Xbox Elite controllers the paddles are remapped *by the controller firmware / Xbox Accessories app* onto ordinary buttons before XInput receives anything — so a paddle arrives as (say) a plain `A` press, indistinguishable from the face button, or as nothing at all if left unassigned. The same applies to the Share button. Rather than invent support, the app lists only what the API actually reports; if a controller/driver ever does expose an extra button, the press-to-detect mechanism picks it up with no code change.
+
+Buttons that already have built-in actions can never be remapped, and neither can Left Stick Click (it is meant to do nothing).
+
+Mappings are stored in `settings.json`, validated on load — an unknown key name or a reserved button is discarded rather than crashing — and preserved across upgrades.
+
+## Themes
+
+**Settings → Theme** cycles the UI theme with `◀ ▶`; the choice is saved immediately and restored on the next launch. Seven themes ship built in:
+
+| Theme | Look |
+|---|---|
+| **Dark** | Default. Black background, cyan accent, neutral greys. |
+| **Light** | White background with dark text for bright rooms. |
+| **Xbox** | Black with restrained Xbox-green accents (accents only — frames stay neutral). |
+| **Girly** | Pink/magenta accents on black, still high-contrast and readable. |
+| **Matrix** | Green-on-black terminal aesthetic. |
+| **Ocean** | Blue/cyan accents on black. |
+| **Amber** | Amber CRT-inspired monochrome. |
+
+Themes are data, not separate UI code: each is a `Theme` record of named colour slots (title, panel frame, label, value, focus, positive/active/negative, plus notification colours), and every component resolves colours through one accessor. A theme therefore restyles the entire interface at once — header, panels, menus, buttons, focus state, status indicators, controller mapping, hint bar **and the notification toasts** — with no per-screen theming code.
+
+## Font Size
+
+**Settings → Font Size** cycles Small / Medium / Large / Extra Large for TV viewing distance, applied via the documented `SetCurrentConsoleFontEx` console API (a real font change, not text-formatting tricks) and persisted.
+
+**The console window resizes itself to match.** Changing font size runs the full sequence automatically — save the setting, apply the font, recalculate the window, resize, re-render — so you never drag a console edge yourself. The target size is *derived from the UI*, not a hardcoded guess: `UiDimensions` computes the required columns from the panel grid width plus margins, and the required rows from the tallest screen, so changing the layout changes the window that gets requested. That keeps the window from being needlessly wide at Small (it asks for exactly the columns the panels need) or too narrow to hold the borders at Extra Large.
+
+Resizing is defensive about Windows' console rules: the requested size is clamped to `LargestWindowWidth`/`LargestWindowHeight` for the current font, and window/buffer are resized in the correct order for both growing and shrinking (buffer first when growing, window first when shrinking), with every call individually guarded so a rejected resize can never crash the app. A font size is also **rejected and rolled back** if the resulting console could not fit the interface at all, so a large font can't leave you with a cut-off, unusable screen.
+
+The layout adapts too: the UI measures available rows each frame and switches to a compact density — dropping internal panel padding and the stick-mapping row — when the comfortable layout no longer fits.
+
+**Known limitation:** console font APIs are honoured by the classic **Windows Console Host** only. **Windows Terminal** renders with its own profile font and silently ignores them. The app detects this (via `WT_SESSION`) and labels the setting *console host only* when it will have no effect. To use font sizing, set *Settings → System → For developers → Terminal* (or Windows Terminal's *Default terminal application*) to **Windows Console Host**, or just set the font size in your Windows Terminal profile instead.
+
 ## Browser Control
 
 `START` is deliberately context-aware rather than a single fixed shortcut, so one button covers "open the browser," "switch to the browser," and "go forward" depending on what's already true:
@@ -160,7 +314,7 @@ This means START behaves like a dedicated "go to my browser" button that also be
 Important state transitions (not every polling tick) raise a small, borderless, always-on-top toast in the corner of the active display:
 
 - `Precision Mode: ON` / `OFF`
-- `Fast Mode: ON` / `OFF`
+- `Game Focused` / `Game Unfocused` (desktop controls paused / resumed)
 - `App Shown` / `App Hidden`
 - `Voice Input: ACTIVE` / `OFF`
 - `Controller Connected` / `Controller Disconnected`
@@ -288,7 +442,8 @@ Core/           Controller state, button flags, edge detection, multi-controller
 Input/          XInput P/Invoke, polling, controller selection/identity
 Simulation/     SendInput-based mouse/keyboard simulation (behind IMouseInput / IKeyboardInput)
 Processing/     Dead zone, sensitivity curves, precision mode — pure, hardware-independent math
-Windows/        Console window focus/topmost, window placement, on-screen keyboard launch, default browser control
+Windows/        Console window focus/topmost + font size, window placement, on-screen keyboard launch,
+                default browser control, Windows startup task, foreground window + game detection
 Notifications/  INotificationService + the WinForms overlay implementation
 Audio/          Short tone feedback (System.Console.Beep)
 Configuration/  Settings model + JSON persistence
@@ -303,6 +458,9 @@ Key boundaries:
 - **Controller selection only changes through an explicit call** (`ControllerSelectionService.ResetToAllControllers()` / a completed specific-controller selection) — there is no implicit button-driven side effect baked into per-tick polling, which is what makes the mode immune to an accidental button press during normal use.
 - **Foreground-activation logic is shared, not duplicated.** `ForegroundWindowActivator` holds the one `AttachThreadInput`-based implementation, used by both `ConsoleWindowController` (toggling the console) and `DefaultBrowserController` (focusing the browser).
 - **Rendering never lives in input code.** Screens build `ConsoleLine`/`ConsoleSegment` data; `ConsoleFrameRenderer` is the only thing that writes to the console. `DesktopInputController` and `ControllerManager` have no reference to it at all, and `AppLoop` only calls it while the app is in menu-navigation context.
+- **Game detection is a service, not loop code.** `ForegroundWindowWatcher` (which window/process is in front) and `GameDetector` (is this process a game) sit behind `IForegroundWindowSource` / `IGameClassifier`, and `GameFocusMonitor` turns them into a debounced state with explicit transitions. `AppLoop` only ticks the monitor and reacts to transitions, which is what makes the whole behaviour unit-testable without a game installed.
+- **Theme and font are preferences, not rendering concerns.** `UiPreferences` owns applying/persisting theme, font size and the startup task, and raises one `SurfaceInvalidated` event; nothing in the controller or simulation layers knows a theme exists.
+- **Custom mappings are a separate input path.** `CustomButtonService` (detection, storage, validation, dispatch) is invoked by `AppLoop` *before* the game-focus pause check, while `DesktopInputController` is invoked after it. That ordering is the whole reason custom shortcuts keep working inside games, and it keeps the two concerns from tangling.
 - Interfaces (`IMouseInput`, `IKeyboardInput`, `IOnScreenKeyboardLauncher`, `INotificationService`, `IAudioFeedbackPlayer`) exist specifically around the pieces that talk to the OS, so the input-mapping logic that drives them can be unit tested with simple fakes instead of real hardware/Windows APIs.
 
 ## Testing
@@ -311,7 +469,7 @@ Key boundaries:
 dotnet test XboxControllerTool.Tests
 ```
 
-Covers, without requiring any controller hardware: UI rendering guarantees (every panel row is exactly the grid width, no character outside the verified CP437-safe set appears on any screen, every screen ends in a hint bar, the home screen contains the controller mapping and app identity, exactly one focus bar is rendered), button edge detection (including "holding a button never repeats a press"), controller selection in both modes plus confirmation that `BACK` no longer has an implicit reset side effect, precision-mode and speed-boost trigger transitions, analog stick dead zone/acceleration math, mouse movement accumulation (including slow/precision and fast/boost multipliers, plus small-stick sustained movement), scroll accumulation and its dead zone/speed scaling (including that output is emitted immediately in smooth sub-notch increments rather than lagging until a full 120-unit notch accumulates), multi-controller state aggregation, settings JSON round-tripping plus corrupt/out-of-range/unknown-version handling, and menu navigation (selection movement, wraparound, push/pop, cancel-at-root).
+Covers, without requiring any controller hardware: UI rendering guarantees (every panel row is exactly the grid width, no character outside the verified CP437-safe set appears on any screen, every screen ends in a hint bar, the home screen contains the controller mapping and app identity, exactly one focus bar is rendered), button edge detection (including "holding a button never repeats a press"), controller selection in both modes plus confirmation that `BACK` no longer has an implicit reset side effect, game-focus state transitions (focusing a game pauses desktop input, Alt-Tabbing away resumes it, a game merely running in the background never pauses it, staying inside a game never repeats the transition, positive classifications are cached while negative ones are retried, and the app's own window is never treated as a game), custom button mappings (every built-in button and Left Stick Click are rejected as mapping targets, spare buttons are detected on first press, a mapping fires exactly once per press and never while held, unmapped presses send nothing, detection still works while dispatch is suppressed, mappings survive a restart, reassigning replaces rather than duplicates, and invalid keys/reserved buttons are discarded on load), theme/font-size/pause-in-games persistence across a restart plus settings files written by an older version still loading, precision-trigger transitions, analog stick dead zone/acceleration math, mouse movement accumulation (including the precision multiplier and small-stick sustained movement), scroll accumulation and its dead zone/speed scaling (including that output is emitted immediately in smooth sub-notch increments rather than lagging until a full 120-unit notch accumulates), multi-controller state aggregation, settings JSON round-tripping plus corrupt/out-of-range/unknown-version handling, and menu navigation (selection movement, wraparound, push/pop, cancel-at-root).
 
 Everything that talks to XInput, `SendInput`, or Win32 windowing is intentionally kept out of the test project and only exercised by running the real app, since it has no meaningful way to run headless.
 
@@ -331,15 +489,27 @@ Everything that talks to XInput, `SendInput`, or Win32 windowing is intentionall
 - `SetForegroundWindow` is subject to Windows' foreground-lock restrictions for background processes; the app uses the documented `AttachThreadInput` workaround, which is reliable in normal desktop sessions but not guaranteed on every system policy.
 - `osk.exe` can be disabled by Group Policy on managed/locked-down machines, in which case the app reports the failure rather than working around it with a custom keyboard.
 - Default browser resolution depends on the `UserChoice` registry association Windows itself uses; if no default browser is set, or a browser overrides that association in an unusual way, `START` falls back to shell-executing a bare `http://` URL rather than a specific executable, and the "already focused" check (which relies on matching that resolved executable's process) won't apply.
+- **Windows exposes no universal "this process is a game" API.** Detection is heuristic (launcher install directory, or the process having a controller-input runtime loaded) and deliberately conservative about full-screen windows. See [Automatic Game Detection](#automatic-game-detection) for exactly what is and isn't detected.
+- **Console font size only applies under the classic Windows Console Host.** Windows Terminal ignores `SetCurrentConsoleFontEx` and uses its own profile font; the app detects this and labels the setting accordingly.
+- Auto-start uses a Scheduled Task rather than a `Run` registry entry, because Windows cannot prompt for UAC at logon and would otherwise skip an elevated app. Creating or removing that task requires the app to be running elevated, which it always is.
+- **XInput cannot see Elite paddles (AGL/AGR) or the Share button**; they are remapped by controller firmware onto ordinary buttons before the API sees them. Only the spare buttons XInput genuinely reports are offered for custom mapping — see [Which buttons can be mapped](#which-buttons-can-be-mapped).
+- The Guide button is only readable through XInput's **undocumented** ordinal-100 export. It is resolved at runtime with a fallback to the public API, so if a future XInput version drops it the app keeps working — Guide simply stops being listed.
 
 ## Future Improvements
 
 - Rumble/vibration feedback for state changes, for controllers that support it.
 - Per-application sensitivity profiles.
 - A secondary, fully custom on-screen keyboard for systems where `osk.exe` is policy-disabled.
+- Additional game-detection signals (the classifier is structured to accept them without touching input handling).
+
+- Additional spare-button sources (Raw Input / HID) if a controller ever exposes paddles independently of XInput — the mapping UI and storage would not need to change, only the detection source.
 
 ## Hardware Verification
 
 This was developed and unit-tested in an environment without a physical Xbox controller attached, so changes are implemented and reasoned through against the documented Win32/XInput APIs and the automated test suite, but not run end-to-end here. Real-hardware testing by an actual user has already caught and driven several rounds of fixes for issues invisible to unit tests alone — scroll feel and smoothness (both normal and precision-mode speed), focus-restore behavior on the console toggle, the console being blank on first launch until Y was pressed, the voice-typing flyout detection heuristic turning out to be unreliable in practice and being replaced with a simpler deterministic toggle, the full X/B/Back/Start/bumper remapping, and minimized-on-launch behavior plus restoring a minimized browser window before focusing it.
 
-The first UI pass shipped Unicode glyphs that rendered as replacement characters on the real machine; the redesign replaced them with a CP437-verified character set (see [Character safety](#character-safety-why-there-are-no-xbox-glyphs)) and added a test that fails the build if an unverified character reappears. Every screen's exact rendered output was inspected line-by-line during development, so the grid alignment and content are confirmed; what remains unverified on hardware is how the finished layout *feels* at TV distance — font size, whether 78 columns × ~34 rows fits comfortably on the target display, and colour legibility on that panel.
+The first UI pass shipped Unicode glyphs that rendered as replacement characters on the real machine; the redesign replaced them with a CP437-verified character set (see [Character safety](#character-safety-why-there-are-no-xbox-glyphs)) and added a test that fails the build if an unverified character reappears. Every screen's exact rendered output was inspected line-by-line during development, so grid alignment and content are confirmed.
+
+**Verified here (automated / inspectable):** the solution builds clean in Release with no warnings; the full test suite passes; the release script runs end to end and produces a ~40 MB self-contained MSI (271 files, .NET runtime bundled) whose `ProductName`/`ProductVersion`/`UpgradeCode` were read back out of the built package; every screen — including the two new custom-mapping screens — renders with every panel row exactly the grid width, using only characters verified present in real console fonts; the custom-mapping engine, game-focus state machine and settings persistence are covered by unit tests using fakes.
+
+**Not verified here, because it needs a real desktop session, a controller and games:** installing/upgrading/uninstalling the MSI; the logon scheduled task actually launching the app; whether a given controller reports any spare button beyond `R3`/`GUIDE`; custom mappings firing inside a real game; actual console font/window resizing at each size on a TV; and game detection against real titles. The automated tests prove the *logic* is right; only a real run proves the *Windows integration* is.

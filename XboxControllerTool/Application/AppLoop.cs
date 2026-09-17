@@ -1,3 +1,4 @@
+using XboxControllerTool.Configuration;
 using XboxControllerTool.ConsoleUi;
 using XboxControllerTool.Core;
 using XboxControllerTool.Input;
@@ -11,6 +12,7 @@ public sealed class AppLoop
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(8);
     private static readonly TimeSpan MenuRefreshInterval = TimeSpan.FromMilliseconds(100);
     private const int XInputSlotCount = 4;
+    private const int GameFocusCheckTickInterval = 4;
 
     private readonly ControllerManager _controllerManager;
     private readonly ControllerSelectionService _selectionService;
@@ -18,6 +20,9 @@ public sealed class AppLoop
     private readonly ConsoleWindowController _consoleWindow;
     private readonly ScreenNavigator _navigator;
     private readonly INotificationService _notifications;
+    private readonly GameFocusMonitor _gameFocusMonitor;
+    private readonly CustomButtonService _customButtons;
+    private readonly AppSettings _settings;
     private readonly AppState _appState;
 
     private readonly GamepadButton[] _previousSlotButtons = new GamepadButton[XInputSlotCount];
@@ -27,6 +32,7 @@ public sealed class AppLoop
     private InputContext _context = InputContext.DesktopControl;
     private DateTime _lastMenuRenderUtc = DateTime.MinValue;
     private bool? _observedMinimized;
+    private int _tickCounter;
 
     public AppLoop(
         ControllerManager controllerManager,
@@ -35,6 +41,9 @@ public sealed class AppLoop
         ConsoleWindowController consoleWindow,
         ScreenNavigator navigator,
         INotificationService notifications,
+        GameFocusMonitor gameFocusMonitor,
+        CustomButtonService customButtons,
+        AppSettings settings,
         AppState appState)
     {
         _controllerManager = controllerManager;
@@ -43,6 +52,9 @@ public sealed class AppLoop
         _consoleWindow = consoleWindow;
         _navigator = navigator;
         _notifications = notifications;
+        _gameFocusMonitor = gameFocusMonitor;
+        _customButtons = customButtons;
+        _settings = settings;
         _appState = appState;
 
         _selectionService.SelectionChanged += OnSelectionChanged;
@@ -93,6 +105,18 @@ public sealed class AppLoop
         var rawTransitions = ButtonEdgeDetector.Detect(_previousRawCombinedButtons, combined.Buttons);
         _previousRawCombinedButtons = combined.Buttons;
 
+        UpdateGameFocus();
+
+        // Custom button mappings are global Windows shortcuts: they run before the game-focus pause
+        // so they keep working while a game owns the controller. They are suppressed only while the
+        // app's own UI is in front, so configuring a button cannot trigger it.
+        _customButtons.Process(rawTransitions, executeActions: _context == InputContext.DesktopControl);
+
+        if (_appState.DesktopInputPaused)
+        {
+            return;
+        }
+
         if (rawTransitions.WasPressed(GamepadButton.Y))
         {
             if (_context == InputContext.DesktopControl)
@@ -111,7 +135,6 @@ public sealed class AppLoop
         {
             _desktopInput.Process(combined, rawTransitions);
             _appState.PrecisionModeActive = _desktopInput.IsPrecisionModeActive;
-            _appState.SpeedBoostActive = _desktopInput.IsSpeedBoostActive;
             _appState.VoiceInputActive = _desktopInput.IsVoiceInputActive;
         }
         else
@@ -130,6 +153,35 @@ public sealed class AppLoop
                 _navigator.Render();
             }
         }
+    }
+
+    private void UpdateGameFocus()
+    {
+        if (++_tickCounter % GameFocusCheckTickInterval != 0)
+        {
+            return;
+        }
+
+        var transition = _gameFocusMonitor.Update(_settings.PauseOnFocusedGame);
+
+        if (transition == GameFocusTransition.None)
+        {
+            return;
+        }
+
+        if (transition == GameFocusTransition.GameFocused)
+        {
+            _appState.DesktopInputPaused = true;
+            _appState.FocusedGameName = _gameFocusMonitor.FocusedProcessName;
+            _desktopInput.ReleaseHeldInputs();
+            _notifications.ShowTransient("Game Focused", "Desktop controls paused");
+            return;
+        }
+
+        _appState.DesktopInputPaused = false;
+        _appState.FocusedGameName = null;
+        _desktopInput.ResetMotionState();
+        _notifications.ShowTransient("Game Unfocused", "Desktop controls resumed");
     }
 
     private void SyncWithWindowState(ControllerState combined)

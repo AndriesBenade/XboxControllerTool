@@ -46,6 +46,58 @@ public sealed class KeyboardSimulator : IKeyboardInput
 
     public void BackspaceUp() => Send(KeyUp(NativeInput.VkBack));
 
+    public void SendCombination(KeyModifiers modifiers, ushort virtualKey)
+    {
+        var sequence = new List<Input>(9);
+
+        foreach (var modifier in ModifierKeys(modifiers))
+        {
+            sequence.Add(KeyDown(modifier));
+        }
+
+        sequence.Add(KeyDown(virtualKey));
+        sequence.Add(KeyUp(virtualKey));
+
+        foreach (var modifier in ModifierKeys(modifiers).Reverse())
+        {
+            sequence.Add(KeyUp(modifier));
+        }
+
+        Send([.. sequence]);
+    }
+
+    public void ReleaseModifiers()
+    {
+        Send(
+            KeyUp(NativeInput.VkControl),
+            KeyUp(NativeInput.VkShift),
+            KeyUp(NativeInput.VkMenu),
+            KeyUp(NativeInput.VkLeftWindows));
+    }
+
+    private static IEnumerable<ushort> ModifierKeys(KeyModifiers modifiers)
+    {
+        if (modifiers.HasFlag(KeyModifiers.Control))
+        {
+            yield return NativeInput.VkControl;
+        }
+
+        if (modifiers.HasFlag(KeyModifiers.Shift))
+        {
+            yield return NativeInput.VkShift;
+        }
+
+        if (modifiers.HasFlag(KeyModifiers.Alt))
+        {
+            yield return NativeInput.VkMenu;
+        }
+
+        if (modifiers.HasFlag(KeyModifiers.Windows))
+        {
+            yield return NativeInput.VkLeftWindows;
+        }
+    }
+
     private static void SendKeySequence(ushort virtualKey)
     {
         Send(KeyDown(virtualKey), KeyUp(virtualKey));

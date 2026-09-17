@@ -15,4 +15,6 @@ public interface IKeyboardInput
     void ArrowRightUp();
     void BackspaceDown();
     void BackspaceUp();
+    void SendCombination(KeyModifiers modifiers, ushort virtualKey);
+    void ReleaseModifiers();
 }

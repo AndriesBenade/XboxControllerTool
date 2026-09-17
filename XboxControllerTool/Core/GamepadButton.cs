@@ -14,6 +14,8 @@ public enum GamepadButton : ushort
     RightThumb = 0x0080,
     LeftShoulder = 0x0100,
     RightShoulder = 0x0200,
+    Guide = 0x0400,
+    Extra = 0x0800,
     A = 0x1000,
     B = 0x2000,
     X = 0x4000,

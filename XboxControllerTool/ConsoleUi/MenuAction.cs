@@ -8,5 +8,6 @@ public enum MenuAction
     Left,
     Right,
     Confirm,
-    Cancel
+    Cancel,
+    Clear
 }

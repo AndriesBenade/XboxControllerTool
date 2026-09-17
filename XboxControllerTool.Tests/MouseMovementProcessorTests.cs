@@ -43,13 +43,13 @@ public class MouseMovementProcessorTests
     }
 
     [Fact]
-    public void ComputeMovement_BoostSpeedMultiplier_MovesFasterThanNormalMultiplier()
+    public void ComputeMovement_HigherSpeedMultiplier_MovesFurtherThanNormalMultiplier()
     {
         var processor = new MouseMovementProcessor();
         var stick = new Vector2(0.3f, 0f);
 
         var normalTotal = 0;
-        var boostedTotal = 0;
+        var fasterTotal = 0;
 
         for (var i = 0; i < 50; i++)
         {
@@ -62,10 +62,10 @@ public class MouseMovementProcessorTests
         for (var i = 0; i < 50; i++)
         {
             var (dx, _) = processor.ComputeMovement(stick, sensitivity: 14, speedMultiplier: 2.2);
-            boostedTotal += dx;
+            fasterTotal += dx;
         }
 
-        Assert.True(boostedTotal > normalTotal);
+        Assert.True(fasterTotal > normalTotal);
     }
 
     [Fact]

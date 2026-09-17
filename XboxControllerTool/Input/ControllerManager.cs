@@ -13,7 +13,7 @@ public sealed class ControllerManager
 
         for (var userIndex = 0; userIndex < XInputNative.UserCount; userIndex++)
         {
-            var result = XInputNative.XInputGetState(userIndex, out var state);
+            var result = XInputNative.GetState(userIndex, out var state);
             var isConnected = result == XInputNative.ErrorSuccess;
 
             if (isConnected != _wasConnected[userIndex])

@@ -72,11 +72,17 @@ internal sealed class NotificationOverlayForm : Form
 
     public void DisplayMessage(string title, string? subtitle, NotificationKind kind, int durationMs, NotificationPosition position)
     {
+        var theme = ConsoleUi.ConsoleTheme.Current;
+
+        BackColor = theme.NotificationBackground;
+        _titleLabel.ForeColor = theme.NotificationTitle;
+        _subtitleLabel.ForeColor = theme.NotificationSubtitle;
+
         _titleLabel.Text = title;
         var hasSubtitle = !string.IsNullOrWhiteSpace(subtitle);
         _subtitleLabel.Visible = hasSubtitle;
         _subtitleLabel.Text = subtitle ?? string.Empty;
-        _accentBar.BackColor = AccentColorFor(kind);
+        _accentBar.BackColor = AccentColorFor(kind, theme);
 
         Height = hasSubtitle ? 84 : 60;
         _titleLabel.Location = hasSubtitle ? new Point(26, 12) : new Point(26, (Height - 30) / 2);
@@ -104,11 +110,11 @@ internal sealed class NotificationOverlayForm : Form
         _ => new Point(workingArea.Right - Width - NotificationMargin, workingArea.Top + NotificationMargin)
     };
 
-    private static Color AccentColorFor(NotificationKind kind) => kind switch
+    private static Color AccentColorFor(NotificationKind kind, ConsoleUi.Theme theme) => kind switch
     {
         NotificationKind.Success => Color.FromArgb(76, 200, 120),
         NotificationKind.Warning => Color.FromArgb(230, 170, 60),
-        _ => Color.FromArgb(0, 188, 212)
+        _ => theme.NotificationAccent
     };
 
     private void OnDismissTick(object? sender, EventArgs e)

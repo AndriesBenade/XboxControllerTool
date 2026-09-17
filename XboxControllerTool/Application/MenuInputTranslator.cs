@@ -49,6 +49,11 @@ public static class MenuInputTranslator
             return MenuAction.Cancel;
         }
 
+        if (faceButtonTransitions.WasPressed(GamepadButton.X))
+        {
+            return MenuAction.Clear;
+        }
+
         if ((pressedDirections & GamepadButton.DPadUp) != 0)
         {
             return MenuAction.Up;

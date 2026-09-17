@@ -2,23 +2,33 @@ namespace XboxControllerTool.ConsoleUi;
 
 public static class ConsoleTheme
 {
-    public const ConsoleColor Background = ConsoleColor.Black;
+    public static Theme Current { get; private set; } = ThemeCatalog.Dark;
 
-    public const ConsoleColor Title = ConsoleColor.Cyan;
-    public const ConsoleColor BandFrame = ConsoleColor.DarkCyan;
+    public static event EventHandler? Changed;
 
-    public const ConsoleColor PanelFrame = ConsoleColor.DarkGray;
-    public const ConsoleColor PanelTitle = ConsoleColor.DarkCyan;
+    public static void Apply(Theme theme)
+    {
+        if (ReferenceEquals(theme, Current))
+        {
+            return;
+        }
 
-    public const ConsoleColor Label = ConsoleColor.DarkGray;
-    public const ConsoleColor Text = ConsoleColor.Gray;
-    public const ConsoleColor Value = ConsoleColor.White;
+        Current = theme;
+        Changed?.Invoke(null, EventArgs.Empty);
+    }
 
-    public const ConsoleColor Focus = ConsoleColor.Cyan;
-    public const ConsoleColor ButtonFrame = ConsoleColor.DarkGray;
-    public const ConsoleColor ButtonLabel = ConsoleColor.White;
-
-    public const ConsoleColor Positive = ConsoleColor.Green;
-    public const ConsoleColor Active = ConsoleColor.Yellow;
-    public const ConsoleColor Negative = ConsoleColor.Red;
+    public static ConsoleColor Background => Current.Background;
+    public static ConsoleColor Title => Current.Title;
+    public static ConsoleColor BandFrame => Current.BandFrame;
+    public static ConsoleColor PanelFrame => Current.PanelFrame;
+    public static ConsoleColor PanelTitle => Current.PanelTitle;
+    public static ConsoleColor Label => Current.Label;
+    public static ConsoleColor Text => Current.Text;
+    public static ConsoleColor Value => Current.Value;
+    public static ConsoleColor Focus => Current.Focus;
+    public static ConsoleColor ButtonFrame => Current.ButtonFrame;
+    public static ConsoleColor ButtonLabel => Current.ButtonLabel;
+    public static ConsoleColor Positive => Current.Positive;
+    public static ConsoleColor Active => Current.Active;
+    public static ConsoleColor Negative => Current.Negative;
 }

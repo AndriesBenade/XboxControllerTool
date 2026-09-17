@@ -20,7 +20,7 @@ public sealed class DesktopInputController
     private readonly MouseMovementProcessor _movementProcessor = new();
     private readonly ScrollProcessor _scrollProcessor = new();
     private readonly TriggerHoldTracker _precisionTracker = new();
-    private readonly TriggerHoldTracker _boostTracker = new();
+    private readonly TriggerHoldTracker _enterTracker = new();
 
     public DesktopInputController(
         AppSettings settings,
@@ -42,14 +42,22 @@ public sealed class DesktopInputController
 
     public bool IsPrecisionModeActive => _precisionTracker.IsActive;
 
-    public bool IsSpeedBoostActive => _boostTracker.IsActive;
-
     public bool IsVoiceInputActive { get; private set; }
 
     public void ResetMotionState()
     {
         _movementProcessor.Reset();
         _scrollProcessor.Reset();
+    }
+
+    public void ReleaseHeldInputs()
+    {
+        _mouse.LeftButtonUp();
+        _mouse.RightButtonUp();
+        _keyboard.BackspaceUp();
+        _keyboard.ArrowLeftUp();
+        _keyboard.ArrowRightUp();
+        ResetMotionState();
     }
 
     public void Process(ControllerState state, ButtonTransitions transitions)
@@ -64,27 +72,13 @@ public sealed class DesktopInputController
             _notifications.ShowTransient("Precision Mode: OFF");
         }
 
-        var boostTransition = _boostTracker.Update(state.RightTrigger);
-        if (boostTransition == TriggerHoldTransition.Activated)
+        if (_enterTracker.Update(state.RightTrigger) == TriggerHoldTransition.Activated)
         {
-            _notifications.ShowTransient("Fast Mode: ON", "Release RT to disable");
-        }
-        else if (boostTransition == TriggerHoldTransition.Deactivated)
-        {
-            _notifications.ShowTransient("Fast Mode: OFF");
+            _keyboard.SendEnter();
         }
 
-        var mouseSpeedMultiplier = _precisionTracker.IsActive
-            ? _settings.PrecisionMultiplier
-            : _boostTracker.IsActive
-                ? _settings.BoostMultiplier
-                : 1.0;
-
-        var scrollSpeedMultiplier = _precisionTracker.IsActive
-            ? _settings.ScrollPrecisionMultiplier
-            : _boostTracker.IsActive
-                ? _settings.BoostMultiplier
-                : 1.0;
+        var mouseSpeedMultiplier = _precisionTracker.IsActive ? _settings.PrecisionMultiplier : 1.0;
+        var scrollSpeedMultiplier = _precisionTracker.IsActive ? _settings.ScrollPrecisionMultiplier : 1.0;
 
         var processedStick = AnalogStickProcessor.Process(
             state.LeftThumbX, state.LeftThumbY, _settings.StickDeadZone, _settings.MouseAccelerationEnabled);
@@ -152,11 +146,6 @@ public sealed class DesktopInputController
         if (transitions.WasPressed(GamepadButton.RightShoulder))
         {
             _keyboard.SendEscape();
-        }
-
-        if (transitions.WasPressed(GamepadButton.LeftThumb))
-        {
-            _keyboard.SendEnter();
         }
 
         if (transitions.WasPressed(GamepadButton.DPadLeft))

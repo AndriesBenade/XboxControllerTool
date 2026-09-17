@@ -48,15 +48,15 @@ public class ScrollProcessorTests
     }
 
     [Fact]
-    public void ComputeWheelDelta_BoostSpeedMultiplier_AccumulatesMoreThanNormalMultiplier()
+    public void ComputeWheelDelta_HigherSpeedMultiplier_AccumulatesMoreThanNormalMultiplier()
     {
         var normalProcessor = new ScrollProcessor();
-        var boostedProcessor = new ScrollProcessor();
+        var fasterProcessor = new ScrollProcessor();
 
         var normalTotal = AccumulateOverTicks(normalProcessor, speedMultiplier: 1.0);
-        var boostedTotal = AccumulateOverTicks(boostedProcessor, speedMultiplier: 2.2);
+        var fasterTotal = AccumulateOverTicks(fasterProcessor, speedMultiplier: 2.2);
 
-        Assert.True(boostedTotal > normalTotal);
+        Assert.True(fasterTotal > normalTotal);
     }
 
     [Fact]

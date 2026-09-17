@@ -24,6 +24,9 @@ public sealed class StatusScreen(AppState appState, AppSettings settings) : IScr
         lines.Add(Pair(
             "VOICE INPUT", AppStateFormatting.OnOff(appState.VoiceInputActive),
             "WINDOW", AppStateFormatting.Window(appState)));
+        lines.Add(Pair(
+            "DESKTOP INPUT", AppStateFormatting.DesktopInput(appState),
+            "THEME", Value(ConsoleTheme.Current.Name.ToUpperInvariant())));
         lines.Add(Panel.Blank());
 
         lines.Add(Panel.Section("SENSITIVITY"));
@@ -35,8 +38,8 @@ public sealed class StatusScreen(AppState appState, AppSettings settings) : IScr
             "PRECISION", Value($"{settings.PrecisionMultiplier * 100:0}%"),
             "PRECISION SCROLL", Value($"{settings.ScrollPrecisionMultiplier * 100:0}%")));
         lines.Add(Pair(
-            "FAST", Value($"{settings.BoostMultiplier:0.0}x"),
-            "ACCELERATION", AppStateFormatting.OnOff(settings.MouseAccelerationEnabled)));
+            "ACCELERATION", AppStateFormatting.OnOff(settings.MouseAccelerationEnabled),
+            "PAUSE IN GAMES", AppStateFormatting.OnOff(settings.PauseOnFocusedGame)));
         lines.Add(Pair(
             "STICK DEAD ZONE", Value($"{settings.StickDeadZone * 100:0}%"),
             "SCROLL DEAD ZONE", Value($"{settings.ScrollDeadZone * 100:0}%")));

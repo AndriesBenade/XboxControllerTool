@@ -30,17 +30,13 @@ public static class AppStateFormatting
         };
     }
 
-    public static ConsoleSegment Speed(AppState state)
-    {
-        if (state.PrecisionModeActive)
-        {
-            return new ConsoleSegment("PRECISION", ConsoleTheme.Focus);
-        }
+    public static ConsoleSegment Speed(AppState state) => state.PrecisionModeActive
+        ? new ConsoleSegment("PRECISION", ConsoleTheme.Focus)
+        : new ConsoleSegment("NORMAL", ConsoleTheme.Value);
 
-        return state.SpeedBoostActive
-            ? new ConsoleSegment("FAST", ConsoleTheme.Active)
-            : new ConsoleSegment("NORMAL", ConsoleTheme.Value);
-    }
+    public static ConsoleSegment DesktopInput(AppState state) => state.DesktopInputPaused
+        ? new ConsoleSegment($"PAUSED - {state.FocusedGameName?.ToUpperInvariant() ?? "GAME"}", ConsoleTheme.Active)
+        : new ConsoleSegment("ACTIVE", ConsoleTheme.Positive);
 
     public static ConsoleSegment OnOff(bool value, string onText = "ON", string offText = "OFF") => value
         ? new ConsoleSegment(onText, ConsoleTheme.Active)

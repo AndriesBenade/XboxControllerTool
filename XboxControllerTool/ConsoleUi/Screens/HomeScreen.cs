@@ -22,23 +22,24 @@ public sealed class HomeScreen : ListMenuScreen
 
         (ControllerButton.X, "Right Click"),
         (ControllerButton.Back, "Browser Back"),
-        (ControllerButton.RightTrigger, "Fast Speed"),
+        (ControllerButton.RightTrigger, "Enter"),
 
         (ControllerButton.B, "Backspace"),
         (ControllerButton.LeftBumper, "Show Desktop"),
-        (ControllerButton.LeftStickClick, "Enter"),
+        (ControllerButton.RightBumper, "Escape"),
 
         (ControllerButton.Up, "Keyboard"),
-        (ControllerButton.Down, "Voice Input"),
-        (ControllerButton.RightBumper, "Escape")
+        (ControllerButton.Down, "Voice Input")
     ];
 
     private readonly AppState _appState;
+    private readonly CustomButtonService _customButtons;
     private readonly IReadOnlyList<MenuDestination> _destinations;
 
-    public HomeScreen(AppState appState, IReadOnlyList<MenuDestination> destinations)
+    public HomeScreen(AppState appState, CustomButtonService customButtons, IReadOnlyList<MenuDestination> destinations)
     {
         _appState = appState;
+        _customButtons = customButtons;
         _destinations = destinations;
     }
 
@@ -49,7 +50,7 @@ public sealed class HomeScreen : ListMenuScreen
         var lines = new List<ConsoleLine>(AppShell.Header());
 
         lines.Add(Panel.Top("STATUS"));
-        lines.Add(Panel.Blank());
+        LayoutMetrics.PanelPad(lines);
         lines.Add(Panel.Row(
         [
             .. FieldRow.Build("CONTROLLER", StatusLabelWidth, AppStateFormatting.Connection(_appState), StatusValueWidth),
@@ -62,21 +63,25 @@ public sealed class HomeScreen : ListMenuScreen
         ]));
         lines.Add(Panel.Row(
         [
-            .. FieldRow.Build("VOICE", StatusLabelWidth, AppStateFormatting.OnOff(_appState.VoiceInputActive), StatusValueWidth),
-            .. FieldRow.Build("WINDOW", StatusLabelWidth, AppStateFormatting.Window(_appState))
+            .. FieldRow.Build("DESKTOP", StatusLabelWidth, AppStateFormatting.DesktopInput(_appState), StatusValueWidth),
+            .. FieldRow.Build("VOICE", StatusLabelWidth, AppStateFormatting.OnOff(_appState.VoiceInputActive))
         ]));
-        lines.Add(Panel.Blank());
+        LayoutMetrics.PanelPad(lines);
         lines.Add(Panel.Bottom());
-        lines.Add(ConsoleLine.Empty);
+        LayoutMetrics.Gap(lines);
 
         lines.Add(Panel.Top("CONTROLS"));
-        lines.Add(Panel.Blank());
-        lines.Add(Panel.Row(
-        [
-            .. ControllerButton.Cell(ControllerButton.LeftStick, "Move Cursor", StickBadgeWidth, StickActionWidth),
-            .. ControllerButton.Cell(ControllerButton.RightStick, "Scroll", StickBadgeWidth, StickActionWidth)
-        ]));
-        lines.Add(Panel.Blank());
+        LayoutMetrics.PanelPad(lines);
+
+        if (!LayoutMetrics.Compact)
+        {
+            lines.Add(Panel.Row(
+            [
+                .. ControllerButton.Cell(ControllerButton.LeftStick, "Move Cursor", StickBadgeWidth, StickActionWidth),
+                .. ControllerButton.Cell(ControllerButton.RightStick, "Scroll", StickBadgeWidth, StickActionWidth)
+            ]));
+            lines.Add(Panel.Blank());
+        }
 
         for (var row = 0; row < ControlMap.Length; row += 3)
         {
@@ -91,12 +96,29 @@ public sealed class HomeScreen : ListMenuScreen
             lines.Add(Panel.Row(cells.ToArray()));
         }
 
-        lines.Add(Panel.Blank());
+        var mapped = _customButtons.DetectedButtons
+            .Where(button => _customButtons.FindMapping(button.Mask) is not null)
+            .ToList();
+
+        if (mapped.Count > 0)
+        {
+            lines.Add(Panel.Blank());
+
+            foreach (var button in mapped)
+            {
+                lines.Add(Panel.Row(
+                [
+                    .. ControllerButton.Cell(button.Label, _customButtons.DescribeMapping(button.Mask), ButtonBadgeWidth, Panel.ContentWidth - ButtonBadgeWidth)
+                ]));
+            }
+        }
+
+        LayoutMetrics.PanelPad(lines);
         lines.Add(Panel.Bottom());
-        lines.Add(ConsoleLine.Empty);
+        LayoutMetrics.Gap(lines);
 
         lines.Add(Panel.Top("MENU"));
-        lines.Add(Panel.Blank());
+        LayoutMetrics.PanelPad(lines);
 
         for (var i = 0; i < _destinations.Count; i++)
         {
@@ -107,7 +129,7 @@ public sealed class HomeScreen : ListMenuScreen
                 MenuLabelWidth));
         }
 
-        lines.Add(Panel.Blank());
+        LayoutMetrics.PanelPad(lines);
         lines.Add(Panel.Bottom());
 
         lines.AddRange(AppShell.Footer(

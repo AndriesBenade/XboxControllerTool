@@ -1,5 +1,10 @@
+# Build output
 bin/
 obj/
 .vs/
 *.user
 *.suo
+
+# Intermediate publish/packaging output.
+# The finished installer is copied into Releases/ and is intentionally tracked.
+artifacts/

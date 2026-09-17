@@ -12,7 +12,6 @@ public static class ControllerButton
     public const string RightTrigger = "RT";
     public const string Back = "BACK";
     public const string Start = "START";
-    public const string LeftStickClick = "LS";
     public const string LeftStick = "L-STICK";
     public const string RightStick = "R-STICK";
     public const string Up = "UP";
