@@ -32,7 +32,8 @@ public sealed class HomeScreen : ListMenuScreen
         (ControllerButton.RightBumper, "Escape"),
 
         (ControllerButton.Up, "Keyboard"),
-        (ControllerButton.Down, "Voice Input")
+        (ControllerButton.Down, "Voice Input"),
+        (ControllerButton.RightStickClick, "Middle Click")
     ];
 
     private readonly AppState _appState;

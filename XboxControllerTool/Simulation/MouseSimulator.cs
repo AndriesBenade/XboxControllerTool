@@ -22,6 +22,8 @@ public sealed class MouseSimulator : IMouseInput
     public void LeftButtonUp() => SendMouseFlag(NativeInput.MouseEventLeftUp);
     public void RightButtonDown() => SendMouseFlag(NativeInput.MouseEventRightDown);
     public void RightButtonUp() => SendMouseFlag(NativeInput.MouseEventRightUp);
+    public void MiddleButtonDown() => SendMouseFlag(NativeInput.MouseEventMiddleDown);
+    public void MiddleButtonUp() => SendMouseFlag(NativeInput.MouseEventMiddleUp);
 
     public void Scroll(int wheelDelta)
     {

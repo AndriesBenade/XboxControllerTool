@@ -9,10 +9,15 @@ public sealed class KeyboardSimulator : IKeyboardInput
         Send(KeyDown(NativeInput.VkLeftWindows), KeyDown(NativeInput.VkH), KeyUp(NativeInput.VkH), KeyUp(NativeInput.VkLeftWindows));
     }
 
+    /// <summary>
+    /// Sends only the Win+H toggle. An Escape used to be sent straight after to force the panel
+    /// shut, but it went to whatever had focus rather than to the panel, so it could dismiss the
+    /// user's own dialog and still leave the panel up. Closing it is handled by
+    /// <see cref="Windows.IVoiceTypingFlyout"/>, which acts on the panel's own window.
+    /// </summary>
     public void StopVoiceTyping()
     {
         Send(KeyDown(NativeInput.VkLeftWindows), KeyDown(NativeInput.VkH), KeyUp(NativeInput.VkH), KeyUp(NativeInput.VkLeftWindows));
-        Send(KeyDown(NativeInput.VkEscape), KeyUp(NativeInput.VkEscape));
     }
 
     public void SendShowDesktop()

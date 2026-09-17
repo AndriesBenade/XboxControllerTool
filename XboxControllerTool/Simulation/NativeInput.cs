@@ -47,6 +47,8 @@ internal static partial class NativeInput
     internal const uint MouseEventLeftUp = 0x0004;
     internal const uint MouseEventRightDown = 0x0008;
     internal const uint MouseEventRightUp = 0x0010;
+    internal const uint MouseEventMiddleDown = 0x0020;
+    internal const uint MouseEventMiddleUp = 0x0040;
     internal const uint MouseEventWheel = 0x0800;
 
     internal const uint KeyEventKeyUp = 0x0002;

@@ -42,7 +42,8 @@ var defaultBrowser = new DefaultBrowserController(keyboard, settings);
 using var notificationManager = new NotificationManager(settings);
 var audioFeedbackPlayer = new AudioFeedbackPlayer(settings);
 
-var desktopInput = new DesktopInputController(settings, mouse, keyboard, onScreenKeyboard, defaultBrowser, notificationManager, audioFeedbackPlayer);
+var voiceTypingFlyout = new VoiceTypingFlyout();
+var desktopInput = new DesktopInputController(settings, mouse, keyboard, onScreenKeyboard, voiceTypingFlyout, defaultBrowser, notificationManager, audioFeedbackPlayer);
 
 var consoleWindow = new ConsoleWindowController();
 var fontController = new ConsoleFontController();

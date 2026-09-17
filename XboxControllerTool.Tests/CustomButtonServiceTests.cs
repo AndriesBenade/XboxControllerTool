@@ -8,7 +8,7 @@ namespace XboxControllerTool.Tests;
 
 public class CustomButtonServiceTests : IDisposable
 {
-    private static readonly string RightThumbId = ButtonIds.ForXInput((ushort)GamepadButton.RightThumb);
+    private static readonly string ExtraId = ButtonIds.ForXInput((ushort)GamepadButton.Extra);
     private static readonly string GuideId = ButtonIds.ForXInput((ushort)GamepadButton.Guide);
 
     private readonly string _directory;
@@ -95,26 +95,26 @@ public class CustomButtonServiceTests : IDisposable
     {
         var service = Create(out _);
 
-        service.Assign(RightThumbId, KeyModifiers.Windows, "D");
+        service.Assign(ExtraId, KeyModifiers.Windows, "D");
 
-        Assert.Equal("Unassigned", service.DescribeMapping(RightThumbId));
-        Assert.False(service.IsConfirmed(RightThumbId));
+        Assert.Equal("Unassigned", service.DescribeMapping(ExtraId));
+        Assert.False(service.IsConfirmed(ExtraId));
 
-        service.Process(Press(GamepadButton.RightThumb), executeActions: true);
-        service.Assign(RightThumbId, KeyModifiers.Windows, "D");
+        service.Process(Press(GamepadButton.Extra), executeActions: true);
+        service.Assign(ExtraId, KeyModifiers.Windows, "D");
 
-        Assert.Equal("Win + D", service.DescribeMapping(RightThumbId));
+        Assert.Equal("Win + D", service.DescribeMapping(ExtraId));
     }
 
     [Fact]
     public void AMappedButtonSendsItsCombinationOncePerPress()
     {
-        var service = CreateConfirmed(GamepadButton.RightThumb, out _);
-        service.Assign(RightThumbId, KeyModifiers.Windows, "D");
+        var service = CreateConfirmed(GamepadButton.Extra, out _);
+        service.Assign(ExtraId, KeyModifiers.Windows, "D");
 
-        service.Process(Press(GamepadButton.RightThumb), executeActions: true);
+        service.Process(Press(GamepadButton.Extra), executeActions: true);
         service.Process(None(), executeActions: true);
-        service.Process(new ButtonTransitions(GamepadButton.None, GamepadButton.RightThumb), executeActions: true);
+        service.Process(new ButtonTransitions(GamepadButton.None, GamepadButton.Extra), executeActions: true);
 
         var combination = Assert.Single(_keyboard.Combinations);
         Assert.Equal(KeyModifiers.Windows, combination.Modifiers);
@@ -124,10 +124,10 @@ public class CustomButtonServiceTests : IDisposable
     [Fact]
     public void HoldingAMappedButtonDoesNotRepeatTheCombination()
     {
-        var service = CreateConfirmed(GamepadButton.RightThumb, out _);
-        service.Assign(RightThumbId, KeyModifiers.Alt, "Tab");
+        var service = CreateConfirmed(GamepadButton.Extra, out _);
+        service.Assign(ExtraId, KeyModifiers.Alt, "Tab");
 
-        service.Process(Press(GamepadButton.RightThumb), executeActions: true);
+        service.Process(Press(GamepadButton.Extra), executeActions: true);
 
         for (var i = 0; i < 100; i++)
         {
@@ -142,7 +142,7 @@ public class CustomButtonServiceTests : IDisposable
     {
         var service = Create(out _);
 
-        service.Process(Press(GamepadButton.RightThumb), executeActions: true);
+        service.Process(Press(GamepadButton.Extra), executeActions: true);
 
         Assert.Empty(_keyboard.Combinations);
     }
@@ -150,12 +150,12 @@ public class CustomButtonServiceTests : IDisposable
     [Fact]
     public void ButtonsAreStillDetectedWhileActionsAreSuppressed()
     {
-        var service = CreateConfirmed(GamepadButton.RightThumb, out _);
-        service.Assign(RightThumbId, KeyModifiers.Windows, "D");
+        var service = CreateConfirmed(GamepadButton.Extra, out _);
+        service.Assign(ExtraId, KeyModifiers.Windows, "D");
         _keyboard.Combinations.Clear();
 
         service.Process(Press(GamepadButton.Guide), executeActions: false);
-        service.Process(Press(GamepadButton.RightThumb), executeActions: false);
+        service.Process(Press(GamepadButton.Extra), executeActions: false);
 
         Assert.Contains(service.DetectedButtons, button => button.Id == GuideId);
         Assert.Empty(_keyboard.Combinations);
@@ -164,43 +164,43 @@ public class CustomButtonServiceTests : IDisposable
     [Fact]
     public void MappingsSurviveARestart()
     {
-        var service = CreateConfirmed(GamepadButton.RightThumb, out var repository);
-        service.Assign(RightThumbId, KeyModifiers.Control | KeyModifiers.Shift, "Esc");
+        var service = CreateConfirmed(GamepadButton.Extra, out var repository);
+        service.Assign(ExtraId, KeyModifiers.Control | KeyModifiers.Shift, "Esc");
 
         var reloaded = new CustomButtonService(repository.Load(), repository, _keyboard);
 
-        Assert.Equal("Ctrl + Shift + Esc", reloaded.DescribeMapping(RightThumbId));
+        Assert.Equal("Ctrl + Shift + Esc", reloaded.DescribeMapping(ExtraId));
     }
 
     [Fact]
     public void ASavedButtonIsListedAfterARestartButMustBePressedAgainBeforeItIsRemapped()
     {
-        var service = CreateConfirmed(GamepadButton.RightThumb, out var repository);
-        service.Assign(RightThumbId, KeyModifiers.Windows, "D");
+        var service = CreateConfirmed(GamepadButton.Extra, out var repository);
+        service.Assign(ExtraId, KeyModifiers.Windows, "D");
 
         var reloaded = new CustomButtonService(repository.Load(), repository, _keyboard);
 
         var listed = Assert.Single(reloaded.DetectedButtons);
-        Assert.Equal(RightThumbId, listed.Id);
+        Assert.Equal(ExtraId, listed.Id);
         Assert.False(listed.Confirmed);
 
-        reloaded.Assign(RightThumbId, KeyModifiers.Alt, "F4");
-        Assert.Equal("Win + D", reloaded.DescribeMapping(RightThumbId));
+        reloaded.Assign(ExtraId, KeyModifiers.Alt, "F4");
+        Assert.Equal("Win + D", reloaded.DescribeMapping(ExtraId));
 
-        reloaded.Process(Press(GamepadButton.RightThumb), executeActions: false);
-        reloaded.Assign(RightThumbId, KeyModifiers.Alt, "F4");
-        Assert.Equal("Alt + F4", reloaded.DescribeMapping(RightThumbId));
+        reloaded.Process(Press(GamepadButton.Extra), executeActions: false);
+        reloaded.Assign(ExtraId, KeyModifiers.Alt, "F4");
+        Assert.Equal("Alt + F4", reloaded.DescribeMapping(ExtraId));
     }
 
     [Fact]
     public void ASavedMappingStillFiresBeforeTheButtonIsPressedAgain()
     {
-        var service = CreateConfirmed(GamepadButton.RightThumb, out var repository);
-        service.Assign(RightThumbId, KeyModifiers.Windows, "D");
+        var service = CreateConfirmed(GamepadButton.Extra, out var repository);
+        service.Assign(ExtraId, KeyModifiers.Windows, "D");
         _keyboard.Combinations.Clear();
 
         var reloaded = new CustomButtonService(repository.Load(), repository, _keyboard);
-        reloaded.Process(Press(GamepadButton.RightThumb), executeActions: true);
+        reloaded.Process(Press(GamepadButton.Extra), executeActions: true);
 
         Assert.Single(_keyboard.Combinations);
     }
@@ -208,13 +208,13 @@ public class CustomButtonServiceTests : IDisposable
     [Fact]
     public void ClearingAMappingRemovesItAndStopsItFiring()
     {
-        var service = CreateConfirmed(GamepadButton.RightThumb, out _);
-        service.Assign(RightThumbId, KeyModifiers.Windows, "D");
+        var service = CreateConfirmed(GamepadButton.Extra, out _);
+        service.Assign(ExtraId, KeyModifiers.Windows, "D");
 
-        service.Clear(RightThumbId);
-        service.Process(Press(GamepadButton.RightThumb), executeActions: true);
+        service.Clear(ExtraId);
+        service.Process(Press(GamepadButton.Extra), executeActions: true);
 
-        Assert.Equal("Unassigned", service.DescribeMapping(RightThumbId));
+        Assert.Equal("Unassigned", service.DescribeMapping(ExtraId));
         Assert.Empty(_keyboard.Combinations);
     }
 
@@ -222,14 +222,14 @@ public class CustomButtonServiceTests : IDisposable
     public void MappingsForUnknownKeysOrReservedButtonsAreDiscardedOnLoad()
     {
         var settings = AppSettings.CreateDefault();
-        settings.CustomButtons.Add(new CustomButtonMapping { ButtonId = RightThumbId, Key = "NotARealKey" });
+        settings.CustomButtons.Add(new CustomButtonMapping { ButtonId = ExtraId, Key = "NotARealKey" });
         settings.CustomButtons.Add(new CustomButtonMapping { ButtonId = ButtonIds.ForXInput((ushort)GamepadButton.A), Key = "D" });
         settings.CustomButtons.Add(new CustomButtonMapping { ButtonId = GuideId, Key = "F5" });
 
         var repository = new SettingsRepository(_settingsPath);
         var service = new CustomButtonService(settings, repository, _keyboard);
 
-        Assert.Equal("Unassigned", service.DescribeMapping(RightThumbId));
+        Assert.Equal("Unassigned", service.DescribeMapping(ExtraId));
         Assert.Equal("Unassigned", service.DescribeMapping(ButtonIds.ForXInput((ushort)GamepadButton.A)));
         Assert.Equal("F5", service.DescribeMapping(GuideId));
     }
@@ -240,7 +240,7 @@ public class CustomButtonServiceTests : IDisposable
         var settings = AppSettings.CreateDefault();
         settings.CustomButtons.Add(new CustomButtonMapping
         {
-            Button = (ushort)GamepadButton.RightThumb,
+            Button = (ushort)GamepadButton.Extra,
             Modifiers = KeyModifiers.Windows,
             Key = "D"
         });
@@ -248,38 +248,38 @@ public class CustomButtonServiceTests : IDisposable
         var repository = new SettingsRepository(_settingsPath);
         var service = new CustomButtonService(settings, repository, _keyboard);
 
-        Assert.Equal("Win + D", service.DescribeMapping(RightThumbId));
+        Assert.Equal("Win + D", service.DescribeMapping(ExtraId));
 
         var saved = Assert.Single(repository.Load().CustomButtons);
-        Assert.Equal(RightThumbId, saved.ButtonId);
+        Assert.Equal(ExtraId, saved.ButtonId);
         Assert.Equal(0, saved.Button);
     }
 
     [Fact]
     public void AssigningIsRejectedForReservedButtonsAndUnknownKeys()
     {
-        var service = CreateConfirmed(GamepadButton.RightThumb, out _);
+        var service = CreateConfirmed(GamepadButton.Extra, out _);
 
         service.Assign(ButtonIds.ForXInput((ushort)GamepadButton.A), KeyModifiers.None, "D");
         service.Assign(ButtonIds.ForXInput((ushort)GamepadButton.LeftThumb), KeyModifiers.None, "D");
-        service.Assign(RightThumbId, KeyModifiers.None, "NotARealKey");
+        service.Assign(ExtraId, KeyModifiers.None, "NotARealKey");
 
         Assert.Equal("Unassigned", service.DescribeMapping(ButtonIds.ForXInput((ushort)GamepadButton.A)));
         Assert.Equal("Unassigned", service.DescribeMapping(ButtonIds.ForXInput((ushort)GamepadButton.LeftThumb)));
-        Assert.Equal("Unassigned", service.DescribeMapping(RightThumbId));
+        Assert.Equal("Unassigned", service.DescribeMapping(ExtraId));
     }
 
     [Fact]
     public void ReassigningAButtonReplacesTheExistingMappingRatherThanAddingASecond()
     {
-        var service = CreateConfirmed(GamepadButton.RightThumb, out var repository);
+        var service = CreateConfirmed(GamepadButton.Extra, out var repository);
 
-        service.Assign(RightThumbId, KeyModifiers.Windows, "D");
-        service.Assign(RightThumbId, KeyModifiers.Alt, "F4");
+        service.Assign(ExtraId, KeyModifiers.Windows, "D");
+        service.Assign(ExtraId, KeyModifiers.Alt, "F4");
 
         var saved = repository.Load();
         Assert.Single(saved.CustomButtons);
-        Assert.Equal("Alt + F4", service.DescribeMapping(RightThumbId));
+        Assert.Equal("Alt + F4", service.DescribeMapping(ExtraId));
     }
 
     [Fact]

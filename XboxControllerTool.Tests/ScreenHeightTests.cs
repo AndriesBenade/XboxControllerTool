@@ -88,7 +88,7 @@ public class ScreenHeightTests : IDisposable
 
         var confirmedDetection = new ButtonDetectionScreen(customButtons);
         confirmedDetection.OnEnter();
-        customButtons.Process(new ButtonTransitions(GamepadButton.RightThumb, GamepadButton.None), executeActions: false);
+        customButtons.Process(new ButtonTransitions(GamepadButton.Extra, GamepadButton.None), executeActions: false);
         _ = confirmedDetection.BuildLines();
 
         return
@@ -106,7 +106,7 @@ public class ScreenHeightTests : IDisposable
             ("custom-buttons", customButtonsScreen),
             ("button-detection", detection),
             ("button-detection-confirmed", confirmedDetection),
-            ("button-mapping", new ButtonMappingScreen(customButtons, ButtonIds.ForXInput((ushort)GamepadButton.RightThumb)))
+            ("button-mapping", new ButtonMappingScreen(customButtons, ButtonIds.ForXInput((ushort)GamepadButton.Extra)))
         ];
     }
 

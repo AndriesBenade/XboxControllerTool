@@ -14,6 +14,7 @@ public sealed class DesktopInputController
     private readonly IMouseInput _mouse;
     private readonly IKeyboardInput _keyboard;
     private readonly IOnScreenKeyboardLauncher _onScreenKeyboard;
+    private readonly IVoiceTypingFlyout _voiceTypingFlyout;
     private readonly DefaultBrowserController _browser;
     private readonly INotificationService _notifications;
     private readonly IAudioFeedbackPlayer _audio;
@@ -27,6 +28,7 @@ public sealed class DesktopInputController
         IMouseInput mouse,
         IKeyboardInput keyboard,
         IOnScreenKeyboardLauncher onScreenKeyboard,
+        IVoiceTypingFlyout voiceTypingFlyout,
         DefaultBrowserController browser,
         INotificationService notifications,
         IAudioFeedbackPlayer audio)
@@ -35,6 +37,7 @@ public sealed class DesktopInputController
         _mouse = mouse;
         _keyboard = keyboard;
         _onScreenKeyboard = onScreenKeyboard;
+        _voiceTypingFlyout = voiceTypingFlyout;
         _browser = browser;
         _notifications = notifications;
         _audio = audio;
@@ -54,6 +57,7 @@ public sealed class DesktopInputController
     {
         _mouse.LeftButtonUp();
         _mouse.RightButtonUp();
+        _mouse.MiddleButtonUp();
         _keyboard.BackspaceUp();
         _keyboard.ArrowLeftUp();
         _keyboard.ArrowRightUp();
@@ -97,6 +101,16 @@ public sealed class DesktopInputController
         if (transitions.WasReleased(GamepadButton.A))
         {
             _mouse.LeftButtonUp();
+        }
+
+        if (transitions.WasPressed(GamepadButton.RightThumb))
+        {
+            _mouse.MiddleButtonDown();
+        }
+
+        if (transitions.WasReleased(GamepadButton.RightThumb))
+        {
+            _mouse.MiddleButtonUp();
         }
 
         if (transitions.WasPressed(GamepadButton.X))
@@ -193,6 +207,11 @@ public sealed class DesktopInputController
         else
         {
             _keyboard.StopVoiceTyping();
+
+            // The Win+H toggle does not always dismiss the panel, so its own window is closed if it
+            // is still up shortly after. Anything already dictated stays in the field.
+            _voiceTypingFlyout.ForceCloseIfStillOpen();
+
             _notifications.ShowTransient("Voice Input: OFF");
             _audio.PlayVoiceInputStopped();
         }

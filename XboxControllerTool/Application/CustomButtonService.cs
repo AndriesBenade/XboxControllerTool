@@ -16,7 +16,7 @@ public sealed class CustomButtonService
                  GamepadButton.LeftShoulder | GamepadButton.RightShoulder |
                  GamepadButton.Start | GamepadButton.Back |
                  GamepadButton.DPadUp | GamepadButton.DPadDown | GamepadButton.DPadLeft | GamepadButton.DPadRight |
-                 GamepadButton.LeftThumb);
+                 GamepadButton.LeftThumb | GamepadButton.RightThumb);
 
     private readonly AppSettings _settings;
     private readonly SettingsRepository _repository;

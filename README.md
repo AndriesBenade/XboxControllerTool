@@ -28,7 +28,8 @@ The console window itself **is** the application UI — there is no separate con
 - Installs as a normal Windows application via an MSI, can start with Windows, and ships seven UI themes plus adjustable console font size.
 - `Y` toggles the app between hidden (minimized, controller drives the desktop) and shown (restored, centred, always-on-top, controller drives the menus), restoring focus to whatever window was in front before it was shown. Minimizing or restoring the window from the taskbar does exactly the same thing, so the two stay in sync — see [Console Window Behavior](#console-window-behavior).
 - `D-PAD UP` opens the built-in Windows On-Screen Keyboard (`osk.exe`).
-- `D-PAD DOWN` toggles Windows voice typing (simulates the `Win+H` shortcut to start/stop, plus `Escape` on stop so the flyout actually closes instead of just pausing).
+- `D-PAD DOWN` toggles Windows voice typing (`Win+H`), and **forces the voice typing panel to close** when toggled off, without discarding anything that was dictated. See [Voice Typing](#voice-typing).
+- `RIGHT STICK CLICK` is a middle mouse click — opening links in new tabs, closing tabs, and autoscroll all work from the couch.
 - Small, always-on-top, non-activating notification toasts confirm state changes (precision mode, game focus pause/resume, app visibility, voice input, controller connect/disconnect/selection, browser, show desktop, on-screen keyboard).
 - Supports multiple simultaneously connected controllers, with a mode to restrict control to one specific pad (useful when a second controller is being used to play a game).
 - Settings and controller selection persist between runs in `%AppData%\XboxControllerTool`.
@@ -54,7 +55,8 @@ The console window itself **is** the application UI — there is no separate con
 | D-Pad Up | Open On-Screen Keyboard |
 | D-Pad Down | Toggle voice input (dictation) |
 | D-Pad Left / Right | Move text caret left/right (hold to repeat) |
-| Right Stick Click, Guide, other spare buttons | Whatever you map them to — see [Custom Button Mappings](#custom-button-mappings) |
+| Right Stick Click | Middle click (mouse wheel button) |
+| Guide, other spare buttons | Whatever you map them to — see [Custom Button Mappings](#custom-button-mappings) |
 
 **Left Stick Click does nothing at all** — no key, no click, no notification. Left stick *movement* still drives the mouse as normal; only the click is unassigned, deliberately, so it can't fire by accident when you push the stick.
 
@@ -235,8 +237,8 @@ The foreground check runs roughly every 32 ms and is just two cheap Win32 calls;
 ┌─ CUSTOM BUTTONS ───────────────────────────────────────────────────────────┐
 │  ██ Detect Button   Press a spare button to add it                [ A ]    │
 ├─ DETECTED BUTTONS ─────────────────────────────────────────────────────────┤
-│     [ R3 ]          Win + D                                                │
-│     [ GUIDE ]       Alt + Tab                                              │
+│     [ GUIDE ]       Win + D                                                │
+│     [ HID 12 ]      Alt + Tab                                              │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -248,7 +250,7 @@ No button is offered from a hard-coded list of buttons a controller *might* have
 ┌─ DETECT A BUTTON ──────────────────────────────────────────────────────────┐
 │  Press and release the button you want to map.                             │
 ├─ RESULT ───────────────────────────────────────────────────────────────────┤
-│  DETECTED        [ R3 ]                                                    │
+│  DETECTED        [ GUIDE ]                                                 │
 │  ██ Map Button      Choose a key combination                      [ A ]    │
 ├─ WHAT WINDOWS CAN SEE ─────────────────────────────────────────────────────┤
 │  045E-02FF       declares 16 buttons to Windows                            │
@@ -269,8 +271,8 @@ This is the point of the feature. Normal desktop injection pauses while a game i
 |---|---|
 | Left stick → mouse movement | paused |
 | `A` / `X` → clicks | paused |
-| `R3` → `Win+D` | **still works** |
-| `GUIDE` → `Alt+Tab` | **still works** |
+| `GUIDE` → `Win+D` | **still works** |
+| `HID 12` → `Alt+Tab` | **still works** |
 
 So you can drop to the desktop or switch windows from the couch without closing the game or reaching for a keyboard. (They are suppressed in one place only: while XboxControllerTool's own UI is in front, so pressing a button to configure it can't also trigger it.)
 
@@ -278,7 +280,7 @@ So you can drop to the desktop or switch windows from the couch without closing 
 
 Any button that reaches Windows and has no built-in action. Two independent sources are watched:
 
-- **XInput** — `R3` (right stick click) and `GUIDE`. XInput's public `XInputGetState` masks the Guide button out, so the app resolves the undocumented ordinal-100 export (`XInputGetStateEx`) at runtime to see it, falling back to the public function if that ever fails. XInput's button mask is a fixed 16 bits and can never carry anything more.
+- **XInput** — `GUIDE` and any spare bit a driver happens to report. XInput's public `XInputGetState` masks the Guide button out, so the app resolves the undocumented ordinal-100 export (`XInputGetStateEx`) at runtime to see it, falling back to the public function if that ever fails. XInput's button mask is a fixed 16 bits and can never carry anything more. `R3` is **not** in this list any more: it is now middle click, and a button with a built-in action is never offered for remapping. Any existing `R3` mapping is dropped on load, as with every other reserved button.
 - **Raw Input / HID** — the app registers a message-only window for HID usages *Joystick*, *Gamepad* and *Multi-axis Controller* with `RIDEV_INPUTSINK` (so presses arrive even while it is minimized) and parses pressed button usages with `HidP_GetUsages`. This is the only route to a button XInput has no bit for.
 
 Windows also delivers HID reports for XInput pads, so every ordinary face button produces **both** an XInput edge and a HID edge. A HID press is therefore held for 60 ms and discarded if an XInput press arrived at the same moment — what survives is a button XInput never reported at all. Once a button is known to be HID-only it skips the wait and responds immediately.
@@ -509,6 +511,23 @@ Everything that talks to XInput, `SendInput`, or Win32 windowing is intentionall
 - **Voice input does nothing** — click/select a text field first; Win+H only opens dictation for the currently focused input.
 - **The console won't come to the foreground** — Windows' foreground-lock behavior can, in some configurations, refuse focus to background processes; the app works around this with the standard `AttachThreadInput` technique, but a fully locked-down desktop policy can still block it. The window is still made topmost even if focus itself is denied.
 - **Previously selected controller shows Unavailable after a reboot** — see the [Controller Selection](#controller-selection) limitation above; this is an XInput identity limitation, not silently switching controllers.
+
+## Voice Typing
+
+`D-PAD DOWN` toggles Windows voice typing with `Win+H`. Toggling it off **forces the voice typing panel off the screen**, and never discards what was dictated — text is inserted into the focused field as you speak, so it is already committed by the time the panel closes.
+
+Getting that panel to actually go away is harder than it sounds, and the first two attempts were wrong:
+
+1. **`Win+H` alone** does not reliably dismiss the panel — sometimes it stops listening but stays on screen.
+2. **Sending `Escape` straight after** was the next attempt. It went to whatever window had focus rather than to the panel, so it could dismiss the user's *own* dialog while still leaving the panel up. That blind `Escape` has been removed.
+
+What works is closing the panel's own window. The panel lives in `TextInputHost.exe` as a `Windows.UI.Core.CoreWindow`, and the catch is that **`IsWindowVisible` is useless here**: the window is created once and reused, and reports visible even when nothing is on screen. Verified on a real machine with voice typing closed:
+
+```
+class=Windows.UI.Core.CoreWindow  vis=True  cloaked=2  title='Windows Input Experience'
+```
+
+The signal that actually changes is DWM cloaking — `DWMWA_CLOAKED` is `2` (cloaked by the shell) while hidden and `0` while shown. So after the toggle, the app watches for up to 1.5 seconds; if the panel is still uncloaked it posts `WM_CLOSE`/`SC_CLOSE` to that window directly. This runs on a background thread, because the input loop ticks every 8 ms and must never wait on the shell.
 
 ## Windows' Own Gamepad Navigation
 

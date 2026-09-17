@@ -150,14 +150,14 @@ public class ConsoleUiRenderingTests : IDisposable
             case "button-detection-confirmed":
                 var detection = new ButtonDetectionScreen(customButtons);
                 detection.OnEnter();
-                PressRightThumb(customButtons);
+                PressExtraButton(customButtons);
                 return detection.BuildLines();
             case "button-mapping":
-                PressRightThumb(customButtons);
-                customButtons.Assign(RightThumbId, XboxControllerTool.Simulation.KeyModifiers.Windows, "D");
-                return new ButtonMappingScreen(customButtons, RightThumbId).BuildLines();
+                PressExtraButton(customButtons);
+                customButtons.Assign(ExtraId, XboxControllerTool.Simulation.KeyModifiers.Windows, "D");
+                return new ButtonMappingScreen(customButtons, ExtraId).BuildLines();
             case "button-mapping-unconfirmed":
-                return new ButtonMappingScreen(customButtons, RightThumbId).BuildLines();
+                return new ButtonMappingScreen(customButtons, ExtraId).BuildLines();
             default:
                 var home = new HomeScreen(_appState, customButtons,
                 [
@@ -170,11 +170,11 @@ public class ConsoleUiRenderingTests : IDisposable
         }
     }
 
-    private static readonly string RightThumbId = ButtonIds.ForXInput((ushort)XboxControllerTool.Core.GamepadButton.RightThumb);
+    private static readonly string ExtraId = ButtonIds.ForXInput((ushort)XboxControllerTool.Core.GamepadButton.Extra);
 
-    private static void PressRightThumb(CustomButtonService customButtons) =>
+    private static void PressExtraButton(CustomButtonService customButtons) =>
         customButtons.Process(
-            new XboxControllerTool.Core.ButtonTransitions(XboxControllerTool.Core.GamepadButton.RightThumb, XboxControllerTool.Core.GamepadButton.None),
+            new XboxControllerTool.Core.ButtonTransitions(XboxControllerTool.Core.GamepadButton.Extra, XboxControllerTool.Core.GamepadButton.None),
             executeActions: false);
 
     private static string Flatten(ConsoleLine line) => string.Concat(line.Segments.Select(segment => segment.Text));

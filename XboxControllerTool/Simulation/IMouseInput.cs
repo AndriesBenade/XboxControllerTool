@@ -7,5 +7,7 @@ public interface IMouseInput
     void LeftButtonUp();
     void RightButtonDown();
     void RightButtonUp();
+    void MiddleButtonDown();
+    void MiddleButtonUp();
     void Scroll(int wheelDelta);
 }
