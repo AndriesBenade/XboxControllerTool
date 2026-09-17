@@ -12,12 +12,13 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>XboxControllerTool.ico</ApplicationIcon>
     <InvariantGlobalization>true</InvariantGlobalization>
     <Platforms>x64</Platforms>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <Version>1.0.0</Version>
-    <Product>Xbox Controller Mouse</Product>
+    <Product>XboxControllerTool</Product>
     <Authors>Andries Benade</Authors>
   </PropertyGroup>
 
