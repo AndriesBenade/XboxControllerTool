@@ -35,11 +35,12 @@ public sealed class ShellGamepadSurfaceDetector : IShellSurfaceClassifier
         ["LockApp"] = "Lock Screen"
     };
 
-    private static readonly Dictionary<string, string> NavigableWindowClasses = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["Shell_TrayWnd"] = "Taskbar",
-        ["Shell_SecondaryTrayWnd"] = "Taskbar"
-    };
+    /// <summary>
+    /// The taskbar is deliberately absent. It navigates by gamepad like the other surfaces, but it
+    /// takes focus far too easily - a click anywhere near the bottom of the screen is enough - and
+    /// losing cursor control every time that happens is worse than the double-input it avoids.
+    /// </summary>
+    private static readonly Dictionary<string, string> NavigableWindowClasses = new(StringComparer.OrdinalIgnoreCase);
 
     public ShellSurface Classify(int processId, nint windowHandle)
     {

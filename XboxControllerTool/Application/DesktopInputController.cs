@@ -23,6 +23,13 @@ public sealed class DesktopInputController
     private readonly TriggerHoldTracker _precisionTracker = new();
     private readonly TriggerHoldTracker _enterTracker = new();
 
+    private bool _leftButtonHeld;
+    private bool _rightButtonHeld;
+    private bool _middleButtonHeld;
+    private bool _backspaceHeld;
+    private bool _arrowLeftHeld;
+    private bool _arrowRightHeld;
+
     public DesktopInputController(
         AppSettings settings,
         IMouseInput mouse,
@@ -53,14 +60,52 @@ public sealed class DesktopInputController
         _scrollProcessor.Reset();
     }
 
+    /// <summary>
+    /// Releases only what is genuinely held down.
+    /// <para>
+    /// Releasing unconditionally injected a mouse-up with no matching mouse-down, and Windows raises
+    /// a context menu on right-button-up, so a pause while nothing was held popped a context menu
+    /// under the cursor. At launch that landed on the taskbar and left the user stuck in it.
+    /// </para>
+    /// </summary>
     public void ReleaseHeldInputs()
     {
-        _mouse.LeftButtonUp();
-        _mouse.RightButtonUp();
-        _mouse.MiddleButtonUp();
-        _keyboard.BackspaceUp();
-        _keyboard.ArrowLeftUp();
-        _keyboard.ArrowRightUp();
+        if (_leftButtonHeld)
+        {
+            _mouse.LeftButtonUp();
+            _leftButtonHeld = false;
+        }
+
+        if (_rightButtonHeld)
+        {
+            _mouse.RightButtonUp();
+            _rightButtonHeld = false;
+        }
+
+        if (_middleButtonHeld)
+        {
+            _mouse.MiddleButtonUp();
+            _middleButtonHeld = false;
+        }
+
+        if (_backspaceHeld)
+        {
+            _keyboard.BackspaceUp();
+            _backspaceHeld = false;
+        }
+
+        if (_arrowLeftHeld)
+        {
+            _keyboard.ArrowLeftUp();
+            _arrowLeftHeld = false;
+        }
+
+        if (_arrowRightHeld)
+        {
+            _keyboard.ArrowRightUp();
+            _arrowRightHeld = false;
+        }
+
         ResetMotionState();
     }
 
@@ -96,41 +141,49 @@ public sealed class DesktopInputController
         if (transitions.WasPressed(GamepadButton.A))
         {
             _mouse.LeftButtonDown();
+            _leftButtonHeld = true;
         }
 
         if (transitions.WasReleased(GamepadButton.A))
         {
             _mouse.LeftButtonUp();
+            _leftButtonHeld = false;
         }
 
         if (transitions.WasPressed(GamepadButton.RightThumb))
         {
             _mouse.MiddleButtonDown();
+            _middleButtonHeld = true;
         }
 
         if (transitions.WasReleased(GamepadButton.RightThumb))
         {
             _mouse.MiddleButtonUp();
+            _middleButtonHeld = false;
         }
 
         if (transitions.WasPressed(GamepadButton.X))
         {
             _mouse.RightButtonDown();
+            _rightButtonHeld = true;
         }
 
         if (transitions.WasReleased(GamepadButton.X))
         {
             _mouse.RightButtonUp();
+            _rightButtonHeld = false;
         }
 
         if (transitions.WasPressed(GamepadButton.B))
         {
             _keyboard.BackspaceDown();
+            _backspaceHeld = true;
         }
 
         if (transitions.WasReleased(GamepadButton.B))
         {
             _keyboard.BackspaceUp();
+            _backspaceHeld = false;
         }
 
         if (transitions.WasPressed(GamepadButton.Start))
@@ -165,21 +218,25 @@ public sealed class DesktopInputController
         if (transitions.WasPressed(GamepadButton.DPadLeft))
         {
             _keyboard.ArrowLeftDown();
+            _arrowLeftHeld = true;
         }
 
         if (transitions.WasReleased(GamepadButton.DPadLeft))
         {
             _keyboard.ArrowLeftUp();
+            _arrowLeftHeld = false;
         }
 
         if (transitions.WasPressed(GamepadButton.DPadRight))
         {
             _keyboard.ArrowRightDown();
+            _arrowRightHeld = true;
         }
 
         if (transitions.WasReleased(GamepadButton.DPadRight))
         {
             _keyboard.ArrowRightUp();
+            _arrowRightHeld = false;
         }
 
         if (transitions.WasPressed(GamepadButton.DPadUp))

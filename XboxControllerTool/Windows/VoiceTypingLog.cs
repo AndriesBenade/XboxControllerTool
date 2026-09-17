@@ -33,7 +33,16 @@ public sealed class VoiceTypingLog
 
     public string? FilePath => _path;
 
-    public void Begin() => Line($"=== voice typing switched off at {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===");
+    /// <summary>
+    /// Starts a session, trimming here and only here. Trimming mid-session used to delete the file
+    /// underneath a survey that was still being written, leaving a headless fragment that could not
+    /// be read back.
+    /// </summary>
+    public void Begin()
+    {
+        TrimIfHuge();
+        Line($"=== voice typing switched off at {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===");
+    }
 
     public void Line(string text) => Write($"{DateTime.Now:HH:mm:ss.fff}  {text}");
 
@@ -58,7 +67,6 @@ public sealed class VoiceTypingLog
         {
             try
             {
-                TrimIfHuge();
                 File.AppendAllText(_path, text + Environment.NewLine);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
@@ -69,11 +77,22 @@ public sealed class VoiceTypingLog
 
     private void TrimIfHuge()
     {
-        var file = new FileInfo(_path!);
-
-        if (file.Exists && file.Length > MaxBytes)
+        if (_path is null)
         {
-            File.Delete(_path!);
+            return;
+        }
+
+        try
+        {
+            var file = new FileInfo(_path);
+
+            if (file.Exists && file.Length > MaxBytes)
+            {
+                File.Delete(_path);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
         }
     }
 }

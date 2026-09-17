@@ -23,7 +23,7 @@ The console window itself **is** the application UI — there is no separate con
 - `D-PAD LEFT` / `D-PAD RIGHT` move the text caret in whatever field currently has focus, also with natural key-repeat while held.
 - Holding `LEFT TRIGGER` engages a temporary, non-persistent Precision Mode that slows the cursor (and moderately slows scrolling — enough to feel deliberate without ever feeling stuck) for fine work. `RIGHT TRIGGER` sends Enter/Return.
 - **Automatically pauses itself while a game is focused** so the controller belongs entirely to the game, and resumes the moment you Alt-Tab away — with no game list to maintain. See [Automatic Game Detection](#automatic-game-detection).
-- **Stands back while Windows navigates its own UI with the controller** (Start menu, Search, Settings, taskbar), so one button press is not acted on twice. See [Windows' Own Gamepad Navigation](#windows-own-gamepad-navigation).
+- **Stands back while Windows navigates its own UI with the controller** (Start menu, Search, Settings), so one button press is not acted on twice. See [Windows' Own Gamepad Navigation](#windows-own-gamepad-navigation).
 - **`START` can be pointed at a specific browser** instead of the Windows default, chosen from the browsers actually installed. See [Choosing Which Browser START Opens](#choosing-which-browser-start-opens).
 - Installs as a normal Windows application via an MSI, can start with Windows, and ships seven UI themes plus adjustable console font size.
 - `Y` toggles the app between hidden (minimized, controller drives the desktop) and shown (restored, centred, always-on-top, controller drives the menus), restoring focus to whatever window was in front before it was shown. Minimizing or restoring the window from the taskbar does exactly the same thing, so the two stay in sync — see [Console Window Behavior](#console-window-behavior).
@@ -539,7 +539,7 @@ Every step, and a snapshot of every window actually on screen at the moment voic
 
 ## Windows' Own Gamepad Navigation
 
-Windows 11 navigates parts of its own interface with a controller: the Start menu, Search, Settings, the taskbar and the lock screen. That happens inside Windows, entirely independently of this application, and it causes a genuine conflict — Windows acts on whatever *it* has focused while this app acts on whatever is under the *cursor*. Put the cursor on **Shut down** while Windows has **Restart** focused, press `A`, and both fire: you get Restart.
+Windows 11 navigates parts of its own interface with a controller: the Start menu, Search, Settings and the lock screen. That happens inside Windows, entirely independently of this application, and it causes a genuine conflict — Windows acts on whatever *it* has focused while this app acts on whatever is under the *cursor*. Put the cursor on **Shut down** while Windows has **Restart** focused, press `A`, and both fire: you get Restart.
 
 **No application can switch that off from user mode.** There is no API to suppress gamepad input to another process; every application reads the pad independently, so this app cannot "win" the button. Anything claiming otherwise is either a kernel-mode driver or wishful thinking. What this app does instead is get out of the way.
 
@@ -547,7 +547,7 @@ Windows 11 navigates parts of its own interface with a controller: the Start men
 
 When a surface Windows navigates by gamepad comes to the front, XboxControllerTool pauses its own input — exactly as it already does for games — so **only one thing responds to the button**. Navigate those surfaces with the D-pad or stick as Windows intends, press `A` to activate, and the moment you leave, desktop control resumes. A toast tells you which surface took over, and the dashboard shows `PAUSED - START MENU`.
 
-The detection is deliberately narrow, and matched by *window class* where a process is ambiguous: Explorer hosts both the taskbar (gamepad-navigable) and File Explorer windows (not), so only the taskbar's `Shell_TrayWnd` class is matched and File Explorer keeps full cursor control. Turn the setting off in **Settings → Yield To Windows UI** to go back to both acting at once.
+Detection is deliberately narrow. **The taskbar is deliberately excluded**, even though it does navigate by gamepad: it takes focus far too easily - a click anywhere near the bottom of the screen is enough - and losing cursor control every time that happens is worse than the double-input it would avoid. File Explorer is never matched either, so it keeps full cursor control. Turn the whole thing off in **Settings → Yield To Windows UI**.
 
 ### If you want cursor control everywhere instead
 

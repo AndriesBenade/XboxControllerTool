@@ -117,12 +117,39 @@ public sealed class VoiceTypingFlyout : IVoiceTypingFlyout
         _log.Snapshot("windows owned by input host processes, with their children", DescribeInputHostTree());
     }
 
+    /// <summary>
+    /// Windows that exist only to service the input stack - one per process - and can never be the
+    /// panel. Left in, they buried the survey: the log blew past its size cap and was truncated.
+    /// </summary>
+    private static readonly string[] PlumbingClasses =
+    [
+        "IME",
+        "MSCTFIME UI",
+        "CicLoaderWndClass",
+        "CiceroUIWndFrame",
+        ".NET-BroadcastEventWindow",
+        "tooltips_class32"
+    ];
+
     private static List<string> DescribeEveryTopLevelWindow()
     {
         var rows = new List<string>();
 
         EnumWindows((handle, _) =>
         {
+            var className = ReadClassName(handle);
+
+            if (PlumbingClasses.Any(plumbing => className.StartsWith(plumbing, StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+
+            // A window with no area cannot be the panel either, whatever it claims about itself.
+            if (!GetWindowRect(handle, out var rect) || rect.Right <= rect.Left || rect.Bottom <= rect.Top)
+            {
+                return true;
+            }
+
             rows.Add(Describe(handle));
             return true;
         }, nint.Zero);
