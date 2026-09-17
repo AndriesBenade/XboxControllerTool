@@ -66,6 +66,8 @@ public sealed class VoiceTypingFlyout : IVoiceTypingFlyout
             _log.Begin();
             _log.Snapshot("everything on screen when voice typing was switched off", DescribeAllOnScreen());
 
+            var dismissed = false;
+
             for (var attempt = 0; attempt < PollAttempts; attempt++)
             {
                 Thread.Sleep(PollInterval);
@@ -74,8 +76,9 @@ public sealed class VoiceTypingFlyout : IVoiceTypingFlyout
 
                 if (panels.Count == 0)
                 {
-                    _log.Line($"attempt {attempt}: no panel on screen, done");
-                    return;
+                    _log.Line($"attempt {attempt}: no panel found among on-screen windows");
+                    dismissed = true;
+                    break;
                 }
 
                 foreach (var panel in panels)
@@ -84,13 +87,72 @@ public sealed class VoiceTypingFlyout : IVoiceTypingFlyout
                 }
             }
 
-            _log.Line("gave up: the panel was still on screen after every attempt");
-            _log.Snapshot("still on screen at the end", DescribeAllOnScreen());
+            if (!dismissed)
+            {
+                _log.Line("gave up: the panel was still on screen after every attempt");
+            }
+
+            // Finding nothing does not mean nothing is showing: the panel has been observed to stay
+            // on screen while matching no visible, uncloaked, top-level window at all. The
+            // unfiltered dump is the only way to find out where it actually lives.
+            LogEverythingUnfiltered();
         }
         catch (Exception ex)
         {
             _log.Line($"failed: {ex.GetType().Name}: {ex.Message}");
         }
+    }
+
+    private void LogEverythingUnfiltered()
+    {
+        _log.Line("--- unfiltered survey ---");
+
+        var inputHostProcesses = System.Diagnostics.Process.GetProcesses()
+            .Where(process => InputHostProcesses.Any(host => process.ProcessName.Contains(host, StringComparison.OrdinalIgnoreCase)))
+            .Select(process => $"{process.ProcessName} pid={process.Id}")
+            .ToList();
+
+        _log.Snapshot("input host processes running", inputHostProcesses);
+        _log.Snapshot("every top level window, whatever its state", DescribeEveryTopLevelWindow());
+        _log.Snapshot("windows owned by input host processes, with their children", DescribeInputHostTree());
+    }
+
+    private static List<string> DescribeEveryTopLevelWindow()
+    {
+        var rows = new List<string>();
+
+        EnumWindows((handle, _) =>
+        {
+            rows.Add(Describe(handle));
+            return true;
+        }, nint.Zero);
+
+        return rows;
+    }
+
+    private static List<string> DescribeInputHostTree()
+    {
+        var rows = new List<string>();
+
+        EnumWindows((handle, _) =>
+        {
+            if (!IsInputHost(handle))
+            {
+                return true;
+            }
+
+            rows.Add("HOST " + Describe(handle));
+
+            EnumChildWindows(handle, (child, _) =>
+            {
+                rows.Add("     child " + Describe(child));
+                return true;
+            }, nint.Zero);
+
+            return true;
+        }, nint.Zero);
+
+        return rows;
     }
 
     /// <summary>
@@ -235,6 +297,10 @@ public sealed class VoiceTypingFlyout : IVoiceTypingFlyout
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool EnumWindows(EnumWindowsProc callback, nint parameter);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool EnumChildWindows(nint parent, EnumWindowsProc callback, nint parameter);
 
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "GetClassNameW")]
     private static extern int GetClassName(nint window, StringBuilder className, int maxCount);

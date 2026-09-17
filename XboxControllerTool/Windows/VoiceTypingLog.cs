@@ -33,7 +33,7 @@ public sealed class VoiceTypingLog
 
     public string? FilePath => _path;
 
-    public void Begin() => Line($"--- voice typing switched off at {DateTime.Now:yyyy-MM-dd HH:mm:ss} ---");
+    public void Begin() => Line($"=== voice typing switched off at {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===");
 
     public void Line(string text) => Write($"{DateTime.Now:HH:mm:ss.fff}  {text}");
 

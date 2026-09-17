@@ -60,20 +60,36 @@ public class VoiceTypingLogTests : IDisposable
 
         flyout.ForceCloseIfStillOpen();
 
-        // The work runs in the background so the input loop is never blocked by the shell.
-        var deadline = DateTime.UtcNow.AddSeconds(10);
-        while (DateTime.UtcNow < deadline && !(File.Exists(_logPath) && File.ReadAllText(_logPath).Contains("no panel on screen")))
+        // The work runs in the background so the input loop is never blocked by the shell, which
+        // means the log is being appended to while this reads it.
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (DateTime.UtcNow < deadline && !ReadShared(_logPath).Contains("unfiltered survey"))
         {
             Thread.Sleep(100);
         }
 
-        var contents = File.ReadAllText(_logPath);
+        var contents = ReadShared(_logPath);
 
         Assert.Contains("everything on screen when voice typing was switched off", contents);
-        Assert.Contains("no panel on screen", contents);
+        Assert.Contains("unfiltered survey", contents);
+        Assert.Contains("every top level window", contents);
 
         // The snapshot has to actually list windows, or it would prove nothing when the panel lingers.
         var count = int.Parse(contents.Split("switched off (")[1].Split(')')[0]);
         Assert.True(count > 0, "The snapshot listed no windows, so it could not diagnose anything.");
+    }
+
+    private static string ReadShared(string path)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        }
+        catch (Exception ex) when (ex is IOException or FileNotFoundException or DirectoryNotFoundException)
+        {
+            return string.Empty;
+        }
     }
 }
