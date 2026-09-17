@@ -82,6 +82,10 @@ public sealed class AppLoop
             slotTransitions[i] = ButtonEdgeDetector.Detect(_previousSlotButtons[i], snapshots[i].State.Buttons);
             _previousSlotButtons[i] = snapshots[i].State.Buttons;
 
+            // Every slot is reported, not just the selected one, so a HID report can be recognised
+            // as the echo of an ordinary XInput press rather than mistaken for an extra button.
+            _customButtons.NoteControllerActivity(slotTransitions[i]);
+
             var isConnected = snapshots[i].State.IsConnected;
             _appState.SlotConnected[i] = isConnected;
 

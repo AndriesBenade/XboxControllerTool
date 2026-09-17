@@ -4,7 +4,8 @@ namespace XboxControllerTool.ConsoleUi.Screens;
 
 public sealed class CustomButtonsScreen : ListMenuScreen
 {
-    private const int LabelWidth = 14;
+    private const int LabelWidth = 16;
+    private const int DetectItemIndex = 0;
 
     private readonly CustomButtonService _customButtons;
 
@@ -13,7 +14,7 @@ public sealed class CustomButtonsScreen : ListMenuScreen
         _customButtons = customButtons;
     }
 
-    protected override int ItemCount => _customButtons.DetectedButtons.Count;
+    protected override int ItemCount => _customButtons.DetectedButtons.Count + 1;
 
     public override IReadOnlyList<ConsoleLine> BuildLines()
     {
@@ -23,14 +24,30 @@ public sealed class CustomButtonsScreen : ListMenuScreen
         lines.Add(Panel.Top("CUSTOM BUTTONS"));
         LayoutMetrics.PanelPad(lines);
 
+        lines.Add(MenuItemRow.BuildSetting(
+            "Detect Button",
+            SelectedIndex == DetectItemIndex,
+            SettingControl.Action("Press a spare button to add it"),
+            LabelWidth,
+            ControllerButton.A));
+
+        LayoutMetrics.PanelPad(lines);
+        lines.Add(Panel.Section("DETECTED BUTTONS"));
+        LayoutMetrics.PanelPad(lines);
+
+        if (buttons.Count == 0)
+        {
+            lines.Add(Panel.Row(new ConsoleSegment("No spare buttons have been detected yet.", ConsoleTheme.Label)));
+        }
+
         for (var i = 0; i < buttons.Count; i++)
         {
             var button = buttons[i];
 
             lines.Add(MenuItemRow.BuildSetting(
                 $"[ {button.Label} ]",
-                SelectedIndex == i,
-                [new ConsoleSegment(_customButtons.DescribeMapping(button.Mask), MappingColour(button.Mask))],
+                SelectedIndex == i + 1,
+                [new ConsoleSegment(_customButtons.DescribeMapping(button.Id), MappingColour(button.Id))],
                 LabelWidth,
                 ControllerButton.A));
         }
@@ -38,13 +55,15 @@ public sealed class CustomButtonsScreen : ListMenuScreen
         LayoutMetrics.PanelPad(lines);
         lines.Add(Panel.Section("DETECTION"));
         LayoutMetrics.PanelPad(lines);
-        lines.Add(Panel.Row(new ConsoleSegment("Press any spare controller button to add it to this list.", ConsoleTheme.Text)));
+        lines.Add(Panel.Row(new ConsoleSegment("A button appears here only after Windows has reported a", ConsoleTheme.Text)));
+        lines.Add(Panel.Row(new ConsoleSegment("real press from it, and must be pressed again this session", ConsoleTheme.Text)));
+        lines.Add(Panel.Row(new ConsoleSegment("before its mapping can be changed.", ConsoleTheme.Text)));
         lines.Add(Panel.Row(new ConsoleSegment("Buttons already used by built-in actions cannot be remapped.", ConsoleTheme.Label)));
         LayoutMetrics.PanelPad(lines);
         lines.Add(Panel.Bottom());
 
         lines.AddRange(AppShell.Footer(
-            (ControllerButton.A, "Map"),
+            (ControllerButton.A, "Select"),
             (ControllerButton.X, "Clear"),
             (ControllerButton.UpDown, "Navigate"),
             (ControllerButton.B, "Back")));
@@ -54,10 +73,16 @@ public sealed class CustomButtonsScreen : ListMenuScreen
 
     protected override NavigationCommand OnConfirm(int index)
     {
-        var buttons = _customButtons.DetectedButtons;
+        if (index == DetectItemIndex)
+        {
+            return NavigationCommand.Push(new ButtonDetectionScreen(_customButtons));
+        }
 
-        return index < buttons.Count
-            ? NavigationCommand.Push(new ButtonMappingScreen(_customButtons, buttons[index].Mask))
+        var buttons = _customButtons.DetectedButtons;
+        var buttonIndex = index - 1;
+
+        return buttonIndex < buttons.Count
+            ? NavigationCommand.Push(new ButtonMappingScreen(_customButtons, buttons[buttonIndex].Id))
             : NavigationCommand.None;
     }
 
@@ -67,10 +92,11 @@ public sealed class CustomButtonsScreen : ListMenuScreen
         if (action == MenuAction.Clear)
         {
             var buttons = _customButtons.DetectedButtons;
+            var buttonIndex = SelectedIndex - 1;
 
-            if (SelectedIndex < buttons.Count)
+            if (buttonIndex >= 0 && buttonIndex < buttons.Count)
             {
-                _customButtons.Clear(buttons[SelectedIndex].Mask);
+                _customButtons.Clear(buttons[buttonIndex].Id);
             }
 
             return NavigationCommand.None;
@@ -79,6 +105,6 @@ public sealed class CustomButtonsScreen : ListMenuScreen
         return base.HandleAction(action);
     }
 
-    private ConsoleColor MappingColour(ushort mask) =>
-        _customButtons.FindMapping(mask) is null ? ConsoleTheme.Label : ConsoleTheme.Value;
+    private ConsoleColor MappingColour(string buttonId) =>
+        _customButtons.FindMapping(buttonId) is null ? ConsoleTheme.Label : ConsoleTheme.Value;
 }

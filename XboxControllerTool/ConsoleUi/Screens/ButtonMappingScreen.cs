@@ -6,20 +6,21 @@ namespace XboxControllerTool.ConsoleUi.Screens;
 public sealed class ButtonMappingScreen : ListMenuScreen
 {
     private const int LabelWidth = 16;
+    private const int SaveItemIndex = 6;
 
     private readonly CustomButtonService _customButtons;
-    private readonly ushort _button;
+    private readonly string _buttonId;
 
     private KeyModifiers _modifiers;
     private string _group;
     private int _keyIndex;
 
-    public ButtonMappingScreen(CustomButtonService customButtons, ushort button)
+    public ButtonMappingScreen(CustomButtonService customButtons, string buttonId)
     {
         _customButtons = customButtons;
-        _button = button;
+        _buttonId = buttonId;
 
-        var existing = _customButtons.FindMapping(button);
+        var existing = _customButtons.FindMapping(buttonId);
         _modifiers = existing?.Modifiers ?? KeyModifiers.None;
 
         var key = existing is null ? null : KeyCatalog.Find(existing.Key);
@@ -28,6 +29,8 @@ public sealed class ButtonMappingScreen : ListMenuScreen
     }
 
     protected override int ItemCount => 7;
+
+    private bool IsConfirmed => _customButtons.IsConfirmed(_buttonId);
 
     private AssignableKey SelectedKey
     {
@@ -40,19 +43,28 @@ public sealed class ButtonMappingScreen : ListMenuScreen
 
     public override IReadOnlyList<ConsoleLine> BuildLines()
     {
+        var label = CustomButtonService.LabelFor(_buttonId);
+        var confirmed = IsConfirmed;
         var lines = new List<ConsoleLine>(AppShell.Header());
 
-        lines.Add(Panel.Top($"MAP BUTTON {CustomButtonService.LabelFor(_button)}"));
+        lines.Add(Panel.Top($"MAP BUTTON {label}"));
         LayoutMetrics.PanelPad(lines);
         lines.Add(Panel.Row(
         [
             new ConsoleSegment("SAVED".PadRight(LabelWidth), ConsoleTheme.Label),
-            new ConsoleSegment(_customButtons.DescribeMapping(_button), ConsoleTheme.Value)
+            new ConsoleSegment(_customButtons.DescribeMapping(_buttonId), ConsoleTheme.Value)
         ]));
         lines.Add(Panel.Row(
         [
             new ConsoleSegment("EDITING".PadRight(LabelWidth), ConsoleTheme.Label),
             new ConsoleSegment(KeyModifiersFormatting.Describe(_modifiers, SelectedKey.Name), ConsoleTheme.Focus)
+        ]));
+        lines.Add(Panel.Row(
+        [
+            new ConsoleSegment("BUTTON".PadRight(LabelWidth), ConsoleTheme.Label),
+            new ConsoleSegment(
+                confirmed ? "Confirmed - press detected" : $"Not confirmed - press {label} now",
+                confirmed ? ConsoleTheme.Positive : ConsoleTheme.Negative)
         ]));
         LayoutMetrics.PanelPad(lines);
         lines.Add(Panel.Section("COMBINATION"));
@@ -68,7 +80,11 @@ public sealed class ButtonMappingScreen : ListMenuScreen
         LayoutMetrics.PanelPad(lines);
         lines.Add(Panel.Section("ACTIONS"));
         LayoutMetrics.PanelPad(lines);
-        lines.Add(Row(6, "Save Mapping", SettingControl.Action("Apply to this button"), ControllerButton.A));
+        lines.Add(Row(
+            SaveItemIndex,
+            "Save Mapping",
+            SettingControl.Action(confirmed ? "Apply to this button" : "Locked until the button is pressed"),
+            ControllerButton.A));
         LayoutMetrics.PanelPad(lines);
         lines.Add(Panel.Bottom());
 
@@ -97,8 +113,15 @@ public sealed class ButtonMappingScreen : ListMenuScreen
             case 3:
                 Toggle(KeyModifiers.Windows);
                 break;
-            case 6:
-                _customButtons.Assign(_button, _modifiers, SelectedKey.Name);
+            case SaveItemIndex:
+                // A mapping is only written once the button has been pressed and detected in this
+                // session, so nothing can be bound to a button this machine never sees.
+                if (!IsConfirmed)
+                {
+                    return NavigationCommand.None;
+                }
+
+                _customButtons.Assign(_buttonId, _modifiers, SelectedKey.Name);
                 return NavigationCommand.Pop;
         }
 

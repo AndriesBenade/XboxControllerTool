@@ -15,7 +15,7 @@ The console window itself **is** the application UI — there is no separate con
 - Left stick moves the mouse cursor with dead-zone filtering, an acceleration curve, and a configurable maximum speed — tuned to feel controllable from a couch rather than like a raw analog-to-pixel mapping.
 - Right stick scrolls the active window vertically, tuned for a snappy, immediate response and smooth sub-notch increments rather than choppy, infrequent jumps — especially noticeable in Precision Mode.
 - `A` / `X` map to left/right mouse click with correct press/release edge handling (holding the button does not spam clicks).
-- **Spare controller buttons can be mapped to any keyboard shortcut** (`Win+D`, `Alt+Tab`, `Ctrl+Shift+Esc`, `Alt+F4`, media keys…) entirely from the controller — and those mappings **keep working while a game is focused**. See [Custom Button Mappings](#custom-button-mappings).
+- **Spare controller buttons (XInput and raw HID) can be mapped to any keyboard shortcut** (`Win+D`, `Alt+Tab`, `Ctrl+Shift+Esc`, `Alt+F4`, media keys…) entirely from the controller — and those mappings **keep working while a game is focused**. See [Custom Button Mappings](#custom-button-mappings).
 - `B` sends Backspace, held down for natural OS key-repeat, just like a physical held Backspace key.
 - `BACK` sends Alt+Left, the standard Windows/browser "navigate back" shortcut.
 - `START` is context-aware browser control rather than a fixed shortcut: opens/focuses your default browser, or sends Alt+Right (forward navigation) if it's already focused. See [Browser Control](#browser-control).
@@ -231,12 +231,29 @@ The foreground check runs roughly every 32 ms and is just two cheap Win32 calls;
 
 ```
 ┌─ CUSTOM BUTTONS ───────────────────────────────────────────────────────────┐
-│  ██ [ R3 ]        Win + D                                         [ A ]    │
-│     [ GUIDE ]     Alt + Tab                                                │
-├─ DETECTION ────────────────────────────────────────────────────────────────┤
-│  Press any spare controller button to add it to this list.                 │
+│  ██ Detect Button   Press a spare button to add it                [ A ]    │
+├─ DETECTED BUTTONS ─────────────────────────────────────────────────────────┤
+│     [ R3 ]          Win + D                                                │
+│     [ GUIDE ]       Alt + Tab                                              │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### Nothing is mappable until you have pressed it
+
+No button is offered from a hard-coded list of buttons a controller *might* have. **Detect Button** waits for a real press and shows you what Windows actually reported:
+
+```
+┌─ DETECT A BUTTON ──────────────────────────────────────────────────────────┐
+│  Press and release the button you want to map.                             │
+├─ RESULT ───────────────────────────────────────────────────────────────────┤
+│  DETECTED        [ R3 ]                                                    │
+│  ██ Map Button      Choose a key combination                      [ A ]    │
+├─ WHAT WINDOWS CAN SEE ─────────────────────────────────────────────────────┤
+│  045E-02FF       declares 16 buttons to Windows                            │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+If a press does not appear here, no software on the machine can map that button — see [Why AGL/AGR/M1/M2/MX may not appear](#why-aglagrm1m2mx-may-not-appear). The **Save Mapping** action stays locked until the button has been pressed in the current session, so a mapping can never be written for a button this machine cannot see. A button carrying a mapping from a previous run stays listed so you can review or clear it, but must be pressed again before its mapping can be changed.
 
 Pick a button, then build the combination with toggles and pickers: `Ctrl`, `Alt`, `Shift`, `Win`, a key group (Letters / Digits / Function / Navigation / Editing / Media) and the key itself. `A` saves, `X` clears a mapping from the list. Examples that work today: `Win+D`, `Alt+Tab`, `Ctrl+Shift+Esc`, `Ctrl+C`, `Alt+F4`, `F5`, `Enter`, or media keys like Play/Pause and Volume Up.
 
@@ -257,15 +274,24 @@ So you can drop to the desktop or switch windows from the couch without closing 
 
 ### Which buttons can be mapped
 
-Only buttons XInput genuinely reports and that have no built-in action:
+Any button that reaches Windows and has no built-in action. Two independent sources are watched:
 
-- **`R3` (right stick click)** — always listed; every XInput controller has it.
-- **`GUIDE`** — the Xbox button. XInput's public `XInputGetState` masks it out, so the app resolves the undocumented ordinal-100 export (`XInputGetStateEx`) at runtime to see it, falling back to the public function if that ever fails.
-- **Any other spare button** the driver happens to report appears automatically the first time you press it, listed with a readable label while the raw identifier is kept internally.
+- **XInput** — `R3` (right stick click) and `GUIDE`. XInput's public `XInputGetState` masks the Guide button out, so the app resolves the undocumented ordinal-100 export (`XInputGetStateEx`) at runtime to see it, falling back to the public function if that ever fails. XInput's button mask is a fixed 16 bits and can never carry anything more.
+- **Raw Input / HID** — the app registers a message-only window for HID usages *Joystick*, *Gamepad* and *Multi-axis Controller* with `RIDEV_INPUTSINK` (so presses arrive even while it is minimized) and parses pressed button usages with `HidP_GetUsages`. This is the only route to a button XInput has no bit for.
 
-**AGL/AGR paddles are not offered, because XInput cannot see them.** On Xbox Elite controllers the paddles are remapped *by the controller firmware / Xbox Accessories app* onto ordinary buttons before XInput receives anything — so a paddle arrives as (say) a plain `A` press, indistinguishable from the face button, or as nothing at all if left unassigned. The same applies to the Share button. Rather than invent support, the app lists only what the API actually reports; if a controller/driver ever does expose an extra button, the press-to-detect mechanism picks it up with no code change.
+Windows also delivers HID reports for XInput pads, so every ordinary face button produces **both** an XInput edge and a HID edge. A HID press is therefore held for 60 ms and discarded if an XInput press arrived at the same moment — what survives is a button XInput never reported at all. Once a button is known to be HID-only it skips the wait and responds immediately.
+
+Buttons are identified as `xinput:0080` or `hid:<VID>-<PID>:<usage>`, so a mapping survives a reconnect or a change of controller slot. Settings written before HID support are migrated automatically.
 
 Buttons that already have built-in actions can never be remapped, and neither can Left Stick Click (it is meant to do nothing).
+
+### Why AGL/AGR/M1/M2/MX may not appear
+
+**Because on most pads those buttons never reach Windows at all.** A controller declares its buttons in its HID report descriptor, and that declaration is a hard ceiling on what any application can detect. The **WHAT WINDOWS CAN SEE** panel on the detection screen shows the count for each attached pad, read straight from the descriptor via `HidP_MaxUsageListLength`.
+
+Measured on the controller attached during development (`\\?\HID#VID_045E&PID_02FF&IG_00`): **16 buttons** — exactly the 16 XInput already exposes, with nothing spare. On Xbox Elite pads the paddles are likewise remapped *by the controller firmware / Xbox Accessories app* onto ordinary buttons before anything reaches the PC, so a paddle arrives as (say) a plain `A` press, indistinguishable from the face button, or as nothing at all if left unassigned. The same applies to the Share button and to the M1/M2/MX buttons on many third-party pads, which are mode/profile switches handled entirely inside the controller.
+
+If your pad declares more buttons than XInput uses, they appear the moment you press one. If it declares 16, the fix is not in this app: give those buttons an output in the controller's own configuration software (Xbox Accessories, or the vendor's app), and whatever they are mapped to will then be visible here.
 
 Mappings are stored in `settings.json`, validated on load — an unknown key name or a reserved button is discarded rather than crashing — and preserved across upgrades.
 
@@ -492,7 +518,7 @@ Everything that talks to XInput, `SendInput`, or Win32 windowing is intentionall
 - **Windows exposes no universal "this process is a game" API.** Detection is heuristic (launcher install directory, or the process having a controller-input runtime loaded) and deliberately conservative about full-screen windows. See [Automatic Game Detection](#automatic-game-detection) for exactly what is and isn't detected.
 - **Console font size only applies under the classic Windows Console Host.** Windows Terminal ignores `SetCurrentConsoleFontEx` and uses its own profile font; the app detects this and labels the setting accordingly.
 - Auto-start uses a Scheduled Task rather than a `Run` registry entry, because Windows cannot prompt for UAC at logon and would otherwise skip an elevated app. Creating or removing that task requires the app to be running elevated, which it always is.
-- **XInput cannot see Elite paddles (AGL/AGR) or the Share button**; they are remapped by controller firmware onto ordinary buttons before the API sees them. Only the spare buttons XInput genuinely reports are offered for custom mapping — see [Which buttons can be mapped](#which-buttons-can-be-mapped).
+- **A controller's HID report descriptor is a hard ceiling on detectable buttons.** XInput cannot see Elite paddles (AGL/AGR), the Share button or M1/M2/MX, and on most pads neither can Raw Input/HID, because those buttons are handled inside the controller and never reach the PC as buttons at all. The app reads each pad's declared button count and shows it, rather than offering buttons it cannot detect — see [Why AGL/AGR/M1/M2/MX may not appear](#why-aglagrm1m2mx-may-not-appear).
 - The Guide button is only readable through XInput's **undocumented** ordinal-100 export. It is resolved at runtime with a fallback to the public API, so if a future XInput version drops it the app keeps working — Guide simply stops being listed.
 
 ## Future Improvements
@@ -502,8 +528,6 @@ Everything that talks to XInput, `SendInput`, or Win32 windowing is intentionall
 - A secondary, fully custom on-screen keyboard for systems where `osk.exe` is policy-disabled.
 - Additional game-detection signals (the classifier is structured to accept them without touching input handling).
 
-- Additional spare-button sources (Raw Input / HID) if a controller ever exposes paddles independently of XInput — the mapping UI and storage would not need to change, only the detection source.
-
 ## Hardware Verification
 
 This was developed and unit-tested in an environment without a physical Xbox controller attached, so changes are implemented and reasoned through against the documented Win32/XInput APIs and the automated test suite, but not run end-to-end here. Real-hardware testing by an actual user has already caught and driven several rounds of fixes for issues invisible to unit tests alone — scroll feel and smoothness (both normal and precision-mode speed), focus-restore behavior on the console toggle, the console being blank on first launch until Y was pressed, the voice-typing flyout detection heuristic turning out to be unreliable in practice and being replaced with a simpler deterministic toggle, the full X/B/Back/Start/bumper remapping, and minimized-on-launch behavior plus restoring a minimized browser window before focusing it.
@@ -512,4 +536,6 @@ The first UI pass shipped Unicode glyphs that rendered as replacement characters
 
 **Verified here (automated / inspectable):** the solution builds clean in Release with no warnings; the full test suite passes; the release script runs end to end and produces a ~40 MB self-contained MSI (271 files, .NET runtime bundled) whose `ProductName`/`ProductVersion`/`UpgradeCode` were read back out of the built package; every screen — including the two new custom-mapping screens — renders with every panel row exactly the grid width, using only characters verified present in real console fonts; the custom-mapping engine, game-focus state machine and settings persistence are covered by unit tests using fakes.
 
-**Not verified here, because it needs a real desktop session, a controller and games:** installing/upgrading/uninstalling the MSI; the logon scheduled task actually launching the app; whether a given controller reports any spare button beyond `R3`/`GUIDE`; custom mappings firing inside a real game; actual console font/window resizing at each size on a TV; and game detection against real titles. The automated tests prove the *logic* is right; only a real run proves the *Windows integration* is.
+Raw Input is not only reasoned about: an automated test performs the real `RegisterRawInputDevices` call for HID gamepads on the build machine and fails if registration is refused, and the device inventory was run against the attached controller — `\\?\HID#VID_045E&PID_02FF&IG_00`, usage page `0x01`, usage `0x05`, **16 declared buttons**, which is what proves that pad has no spare buttons to offer rather than the app failing to look.
+
+**Not verified here, because it needs a real desktop session, a controller and games:** installing/upgrading/uninstalling the MSI; the logon scheduled task actually launching the app; whether a *different* controller declares spare buttons beyond the 16 (the detection path itself is covered by unit tests with a fake HID source); custom mappings firing inside a real game; actual console font/window resizing at each size on a TV; and game detection against real titles. The automated tests prove the *logic* is right; only a real run proves the *Windows integration* is.

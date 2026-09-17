@@ -1,10 +1,11 @@
 using XboxControllerTool.Configuration;
 using XboxControllerTool.Core;
 using XboxControllerTool.Simulation;
+using XboxControllerTool.Windows.RawInput;
 
 namespace XboxControllerTool.Application;
 
-public readonly record struct ExtraButton(ushort Mask, string Label);
+public readonly record struct ExtraButton(string Id, string Label, bool Confirmed);
 
 public sealed class CustomButtonService
 {
@@ -17,68 +18,101 @@ public sealed class CustomButtonService
                  GamepadButton.DPadUp | GamepadButton.DPadDown | GamepadButton.DPadLeft | GamepadButton.DPadRight |
                  GamepadButton.LeftThumb);
 
-    private static readonly IReadOnlyDictionary<ushort, string> KnownLabels = new Dictionary<ushort, string>
-    {
-        [(ushort)GamepadButton.RightThumb] = "R3",
-        [(ushort)GamepadButton.Guide] = "GUIDE",
-        [(ushort)GamepadButton.Extra] = "EXTRA"
-    };
-
     private readonly AppSettings _settings;
     private readonly SettingsRepository _repository;
     private readonly IKeyboardInput _keyboard;
-    private readonly HashSet<ushort> _detected = [];
+    private readonly IRawGamepadSource? _rawSource;
+    private readonly RawButtonCorrelator _correlator = new();
+    private readonly Func<DateTime> _clock;
+    private readonly Dictionary<string, bool> _detected = [];
 
-    public CustomButtonService(AppSettings settings, SettingsRepository repository, IKeyboardInput keyboard)
+    public CustomButtonService(
+        AppSettings settings,
+        SettingsRepository repository,
+        IKeyboardInput keyboard,
+        IRawGamepadSource? rawSource = null,
+        Func<DateTime>? clock = null)
     {
         _settings = settings;
         _repository = repository;
         _keyboard = keyboard;
+        _rawSource = rawSource;
+        _clock = clock ?? (() => DateTime.UtcNow);
 
-        // The right stick click exists on every XInput controller and has no built-in action,
-        // so it is always offered. Anything else has to actually be seen before it is listed.
-        _detected.Add((ushort)GamepadButton.RightThumb);
+        NormalizeMappings();
 
-        RemoveInvalidMappings();
-
+        // A saved mapping keeps its button on the list so it can be reviewed or cleared, but the
+        // button counts as unconfirmed until it is pressed again in this session.
         foreach (var mapping in _settings.CustomButtons)
         {
-            _detected.Add(mapping.Button);
+            _detected.TryAdd(mapping.ButtonId, false);
         }
     }
 
+    /// <summary>
+    /// True when raw HID monitoring started, which is what allows buttons XInput cannot report to
+    /// be discovered at all.
+    /// </summary>
+    public bool RawDetectionAvailable => _rawSource?.IsRunning ?? false;
+
+    /// <summary>
+    /// The attached gamepads and the number of buttons each one declares to Windows. A button the
+    /// controller never declares cannot be detected by any application, so this is what explains an
+    /// extra button that refuses to show up.
+    /// </summary>
+    public IReadOnlyList<RawGamepadDevice> Devices => _rawSource?.DescribeDevices() ?? [];
+
+    /// <summary>Increments on every press of a mappable button, so the UI can react to one.</summary>
+    public int DetectionSequence { get; private set; }
+
+    public ExtraButton? LastDetected { get; private set; }
+
     public IReadOnlyList<ExtraButton> DetectedButtons =>
-        [.. _detected.OrderBy(mask => mask).Select(mask => new ExtraButton(mask, LabelFor(mask)))];
+    [
+        .. _detected
+            .OrderBy(entry => ButtonIds.IsHid(entry.Key))
+            .ThenBy(entry => SortKey(entry.Key))
+            .ThenBy(entry => entry.Key, StringComparer.Ordinal)
+            .Select(entry => new ExtraButton(entry.Key, ButtonIds.LabelFor(entry.Key), entry.Value))
+    ];
 
     public static bool IsMappable(ushort mask) => mask != 0 && (mask & ReservedButtons) == 0;
 
-    public static string LabelFor(ushort mask) =>
-        KnownLabels.TryGetValue(mask, out var label) ? label : $"BUTTON {mask:X3}";
+    public static bool IsMappable(string buttonId) =>
+        ButtonIds.TryParseXInput(buttonId, out var mask) ? IsMappable(mask) : ButtonIds.TryParseHidUsage(buttonId, out _);
 
-    public CustomButtonMapping? FindMapping(ushort mask) =>
-        _settings.CustomButtons.FirstOrDefault(mapping => mapping.Button == mask);
+    public static string LabelFor(string buttonId) => ButtonIds.LabelFor(buttonId);
 
-    public string DescribeMapping(ushort mask)
+    public bool IsConfirmed(string buttonId) => _detected.TryGetValue(buttonId, out var confirmed) && confirmed;
+
+    public CustomButtonMapping? FindMapping(string buttonId) =>
+        _settings.CustomButtons.FirstOrDefault(mapping => mapping.ButtonId == buttonId);
+
+    public string DescribeMapping(string buttonId)
     {
-        var mapping = FindMapping(mask);
+        var mapping = FindMapping(buttonId);
 
         return mapping is null
             ? "Unassigned"
             : KeyModifiersFormatting.Describe(mapping.Modifiers, mapping.Key);
     }
 
-    public void Assign(ushort mask, KeyModifiers modifiers, string keyName)
+    /// <summary>
+    /// Stores a key combination for a button. A button that has not been pressed and detected in
+    /// this session is rejected, so nothing can be mapped to a button this machine cannot see.
+    /// </summary>
+    public void Assign(string buttonId, KeyModifiers modifiers, string keyName)
     {
-        if (!IsMappable(mask) || !KeyCatalog.IsKnown(keyName))
+        if (!IsMappable(buttonId) || !IsConfirmed(buttonId) || !KeyCatalog.IsKnown(keyName))
         {
             return;
         }
 
-        var mapping = FindMapping(mask);
+        var mapping = FindMapping(buttonId);
 
         if (mapping is null)
         {
-            mapping = new CustomButtonMapping { Button = mask };
+            mapping = new CustomButtonMapping { ButtonId = buttonId };
             _settings.CustomButtons.Add(mapping);
         }
 
@@ -87,9 +121,9 @@ public sealed class CustomButtonService
         _repository.Save(_settings);
     }
 
-    public void Clear(ushort mask)
+    public void Clear(string buttonId)
     {
-        var mapping = FindMapping(mask);
+        var mapping = FindMapping(buttonId);
 
         if (mapping is null)
         {
@@ -101,57 +135,133 @@ public sealed class CustomButtonService
     }
 
     /// <summary>
-    /// Records any mappable button that is pressed and, when <paramref name="executeActions"/> is set,
-    /// fires its key combination once per press. This runs regardless of the game-focus pause so that
-    /// Windows-level shortcuts stay available while a game owns the controller.
+    /// Records controller activity for correlation only. Presses on every slot are reported here,
+    /// including slots the user excluded, so a HID report can be recognised as the echo of an
+    /// ordinary XInput button rather than mistaken for an extra one.
+    /// </summary>
+    public void NoteControllerActivity(ButtonTransitions transitions)
+    {
+        if (transitions.Pressed != GamepadButton.None)
+        {
+            _correlator.NoteControllerPress(_clock());
+        }
+    }
+
+    /// <summary>
+    /// Detects mappable button presses and, when <paramref name="executeActions"/> is set, fires
+    /// the mapped key combination once per press. This runs regardless of the game-focus pause so
+    /// that Windows-level shortcuts stay available while a game owns the controller.
     /// </summary>
     public void Process(ButtonTransitions transitions, bool executeActions)
     {
+        var now = _clock();
         var pressed = (ushort)transitions.Pressed;
 
-        if (pressed == 0)
+        if (pressed != 0)
         {
-            return;
+            _correlator.NoteControllerPress(now);
+
+            for (var bit = 1; bit <= 0x8000; bit <<= 1)
+            {
+                var mask = (ushort)bit;
+
+                if ((pressed & mask) != 0 && IsMappable(mask))
+                {
+                    Handle(ButtonIds.ForXInput(mask), executeActions);
+                }
+            }
         }
 
-        for (var bit = 1; bit <= 0x8000; bit <<= 1)
+        DrainRawPresses(executeActions);
+
+        foreach (var press in _correlator.Release(now))
         {
-            var mask = (ushort)bit;
-
-            if ((pressed & mask) == 0 || !IsMappable(mask))
-            {
-                continue;
-            }
-
-            _detected.Add(mask);
-
-            if (!executeActions)
-            {
-                continue;
-            }
-
-            var mapping = FindMapping(mask);
-
-            if (mapping is null)
-            {
-                continue;
-            }
-
-            if (KeyCatalog.Find(mapping.Key) is { } key)
-            {
-                _keyboard.SendCombination(mapping.Modifiers, key.VirtualKey);
-            }
+            Handle(ButtonIds.ForHid(press.DeviceId, press.Usage), executeActions);
         }
     }
 
     public void ReleaseModifiers() => _keyboard.ReleaseModifiers();
 
-    private void RemoveInvalidMappings()
+    private void DrainRawPresses(bool executeActions)
     {
-        var removed = _settings.CustomButtons.RemoveAll(mapping =>
-            !IsMappable(mapping.Button) || !KeyCatalog.IsKnown(mapping.Key));
+        if (_rawSource is null)
+        {
+            return;
+        }
 
-        if (removed > 0)
+        while (_rawSource.TryDequeue(out var press))
+        {
+            var buttonId = ButtonIds.ForHid(press.DeviceId, press.Usage);
+
+            // A button already known to be invisible to XInput never needs correlating again, so
+            // it responds immediately instead of waiting out the correlation window.
+            if (_detected.ContainsKey(buttonId))
+            {
+                Handle(buttonId, executeActions);
+            }
+            else
+            {
+                _correlator.NoteRawPress(press);
+            }
+        }
+    }
+
+    private void Handle(string buttonId, bool executeActions)
+    {
+        if (!IsMappable(buttonId))
+        {
+            return;
+        }
+
+        _detected[buttonId] = true;
+        DetectionSequence++;
+        LastDetected = new ExtraButton(buttonId, ButtonIds.LabelFor(buttonId), true);
+
+        if (!executeActions)
+        {
+            return;
+        }
+
+        if (FindMapping(buttonId) is { } mapping && KeyCatalog.Find(mapping.Key) is { } key)
+        {
+            _keyboard.SendCombination(mapping.Modifiers, key.VirtualKey);
+        }
+    }
+
+    private static int SortKey(string buttonId)
+    {
+        if (ButtonIds.TryParseXInput(buttonId, out var mask))
+        {
+            return mask;
+        }
+
+        return ButtonIds.TryParseHidUsage(buttonId, out var usage) ? usage : int.MaxValue;
+    }
+
+    private void NormalizeMappings()
+    {
+        var changed = false;
+
+        foreach (var mapping in _settings.CustomButtons)
+        {
+            if (mapping.Button != 0)
+            {
+                if (string.IsNullOrEmpty(mapping.ButtonId))
+                {
+                    mapping.ButtonId = ButtonIds.ForXInput(mapping.Button);
+                }
+
+                mapping.Button = 0;
+                changed = true;
+            }
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        var removed = _settings.CustomButtons.RemoveAll(mapping =>
+            !IsMappable(mapping.ButtonId) || !KeyCatalog.IsKnown(mapping.Key) || !seen.Add(mapping.ButtonId));
+
+        if (changed || removed > 0)
         {
             _repository.Save(_settings);
         }

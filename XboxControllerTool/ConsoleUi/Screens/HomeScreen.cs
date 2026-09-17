@@ -97,7 +97,7 @@ public sealed class HomeScreen : ListMenuScreen
         }
 
         var mapped = _customButtons.DetectedButtons
-            .Where(button => _customButtons.FindMapping(button.Mask) is not null)
+            .Where(button => _customButtons.FindMapping(button.Id) is not null)
             .ToList();
 
         if (mapped.Count > 0)
@@ -108,7 +108,7 @@ public sealed class HomeScreen : ListMenuScreen
             {
                 lines.Add(Panel.Row(
                 [
-                    .. ControllerButton.Cell(button.Label, _customButtons.DescribeMapping(button.Mask), ButtonBadgeWidth, Panel.ContentWidth - ButtonBadgeWidth)
+                    .. ControllerButton.Cell(button.Label, _customButtons.DescribeMapping(button.Id), ButtonBadgeWidth, Panel.ContentWidth - ButtonBadgeWidth)
                 ]));
             }
         }

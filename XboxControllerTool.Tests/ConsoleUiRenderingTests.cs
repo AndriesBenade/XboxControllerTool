@@ -31,8 +31,13 @@ public class ConsoleUiRenderingTests : IDisposable
         }
     }
 
-    public static TheoryData<string> ScreenNames() =>
-        new("home", "settings", "controller", "controller-waiting", "status", "custom-buttons", "button-mapping");
+    private static readonly string[] AllScreenNames =
+    [
+        "home", "settings", "controller", "controller-waiting", "status", "custom-buttons",
+        "button-detection", "button-detection-confirmed", "button-mapping", "button-mapping-unconfirmed"
+    ];
+
+    public static TheoryData<string> ScreenNames() => [.. AllScreenNames];
 
     [Theory]
     [MemberData(nameof(ScreenNames))]
@@ -98,7 +103,7 @@ public class ConsoleUiRenderingTests : IDisposable
     [Fact]
     public void EveryScreenEndsWithAContextualHintBar()
     {
-        foreach (var screenName in new[] { "home", "settings", "controller", "controller-waiting", "status", "custom-buttons", "button-mapping" })
+        foreach (var screenName in AllScreenNames)
         {
             var lastLine = Flatten(Render(screenName)[^1]);
             Assert.Contains("[ ", lastLine);
@@ -119,7 +124,9 @@ public class ConsoleUiRenderingTests : IDisposable
     {
         var repository = new SettingsRepository(_settingsPath);
         var uiPreferences = new UiPreferences(_settings, repository, new ConsoleFontController(), new ConsoleWindowController(), new StartupManager());
-        var customButtons = new CustomButtonService(_settings, repository, new RecordingKeyboard());
+        var rawSource = new FakeRawGamepadSource();
+        rawSource.Devices.Add(new XboxControllerTool.Windows.RawInput.RawGamepadDevice("045E-02FF", 16));
+        var customButtons = new CustomButtonService(_settings, repository, new RecordingKeyboard(), rawSource);
         var statusScreen = new StatusScreen(_appState, _settings);
         var customButtonsScreen = new CustomButtonsScreen(customButtons);
         var settingsScreen = new SettingsScreen(_settings, repository, uiPreferences, customButtonsScreen);
@@ -138,9 +145,19 @@ public class ConsoleUiRenderingTests : IDisposable
                 return statusScreen.BuildLines();
             case "custom-buttons":
                 return customButtonsScreen.BuildLines();
+            case "button-detection":
+                return new ButtonDetectionScreen(customButtons).BuildLines();
+            case "button-detection-confirmed":
+                var detection = new ButtonDetectionScreen(customButtons);
+                detection.OnEnter();
+                PressRightThumb(customButtons);
+                return detection.BuildLines();
             case "button-mapping":
-                customButtons.Assign((ushort)XboxControllerTool.Core.GamepadButton.RightThumb, XboxControllerTool.Simulation.KeyModifiers.Windows, "D");
-                return new ButtonMappingScreen(customButtons, (ushort)XboxControllerTool.Core.GamepadButton.RightThumb).BuildLines();
+                PressRightThumb(customButtons);
+                customButtons.Assign(RightThumbId, XboxControllerTool.Simulation.KeyModifiers.Windows, "D");
+                return new ButtonMappingScreen(customButtons, RightThumbId).BuildLines();
+            case "button-mapping-unconfirmed":
+                return new ButtonMappingScreen(customButtons, RightThumbId).BuildLines();
             default:
                 var home = new HomeScreen(_appState, customButtons,
                 [
@@ -152,6 +169,13 @@ public class ConsoleUiRenderingTests : IDisposable
                 return home.BuildLines();
         }
     }
+
+    private static readonly string RightThumbId = ButtonIds.ForXInput((ushort)XboxControllerTool.Core.GamepadButton.RightThumb);
+
+    private static void PressRightThumb(CustomButtonService customButtons) =>
+        customButtons.Process(
+            new XboxControllerTool.Core.ButtonTransitions(XboxControllerTool.Core.GamepadButton.RightThumb, XboxControllerTool.Core.GamepadButton.None),
+            executeActions: false);
 
     private static string Flatten(ConsoleLine line) => string.Concat(line.Segments.Select(segment => segment.Text));
 

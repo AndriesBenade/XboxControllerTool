@@ -8,6 +8,7 @@ using XboxControllerTool.Input;
 using XboxControllerTool.Notifications;
 using XboxControllerTool.Simulation;
 using XboxControllerTool.Windows;
+using XboxControllerTool.Windows.RawInput;
 
 TryConfigureConsole();
 Console.Title = "XboxControllerTool";
@@ -43,7 +44,10 @@ consoleWindow.Minimize();
 
 var appState = new AppState();
 var gameFocusMonitor = new GameFocusMonitor(new ForegroundWindowWatcher(), new GameDetector());
-var customButtons = new CustomButtonService(settings, settingsRepository, keyboard);
+using var rawGamepadWatcher = new RawGamepadWatcher();
+rawGamepadWatcher.Start();
+
+var customButtons = new CustomButtonService(settings, settingsRepository, keyboard, rawGamepadWatcher);
 
 var statusScreen = new StatusScreen(appState, settings);
 var customButtonsScreen = new CustomButtonsScreen(customButtons);
