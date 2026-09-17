@@ -23,6 +23,7 @@ public sealed class AppLoop
     private readonly ScreenNavigator _navigator;
     private readonly INotificationService _notifications;
     private readonly GameFocusMonitor _gameFocusMonitor;
+    private readonly ShellNavigationMonitor _shellNavigationMonitor;
     private readonly CustomButtonService _customButtons;
     private readonly AppSettings _settings;
     private readonly AppState _appState;
@@ -46,6 +47,7 @@ public sealed class AppLoop
         ScreenNavigator navigator,
         INotificationService notifications,
         GameFocusMonitor gameFocusMonitor,
+        ShellNavigationMonitor shellNavigationMonitor,
         CustomButtonService customButtons,
         AppSettings settings,
         AppState appState,
@@ -58,6 +60,7 @@ public sealed class AppLoop
         _navigator = navigator;
         _notifications = notifications;
         _gameFocusMonitor = gameFocusMonitor;
+        _shellNavigationMonitor = shellNavigationMonitor;
         _customButtons = customButtons;
         _settings = settings;
         _appState = appState;
@@ -161,7 +164,7 @@ public sealed class AppLoop
         var rawTransitions = ButtonEdgeDetector.Detect(_previousRawCombinedButtons, combined.Buttons);
         _previousRawCombinedButtons = combined.Buttons;
 
-        UpdateGameFocus();
+        UpdateFocusSuppression();
 
         // Custom button mappings are global Windows shortcuts: they run before the game-focus pause
         // so they keep working while a game owns the controller. They are suppressed only while the
@@ -211,33 +214,61 @@ public sealed class AppLoop
         }
     }
 
-    private void UpdateGameFocus()
+    private void UpdateFocusSuppression()
     {
         if (++_tickCounter % GameFocusCheckTickInterval != 0)
         {
             return;
         }
 
-        var transition = _gameFocusMonitor.Update(_settings.PauseOnFocusedGame);
+        var gameTransition = _gameFocusMonitor.Update(_settings.PauseOnFocusedGame);
+        var shellTransition = _shellNavigationMonitor.Update(_settings.YieldToWindowsShell);
 
-        if (transition == GameFocusTransition.None)
+        if (gameTransition == GameFocusTransition.GameFocused)
+        {
+            Pause("Game Focused", "Desktop controls paused");
+        }
+        else if (shellTransition == ShellFocusTransition.ShellFocused)
+        {
+            // Windows drives this surface from the controller itself, so standing back is the only
+            // way to stop one button press being acted on twice.
+            Pause(
+                $"{_shellNavigationMonitor.SurfaceName ?? "Windows UI"} Focused",
+                "Windows is driving the controller");
+        }
+        else if (gameTransition == GameFocusTransition.GameUnfocused || shellTransition == ShellFocusTransition.ShellUnfocused)
+        {
+            Resume();
+        }
+
+        _appState.FocusedGameName = _gameFocusMonitor.IsGameFocused ? _gameFocusMonitor.FocusedProcessName : null;
+        _appState.FocusedShellSurface = _shellNavigationMonitor.IsShellFocused ? _shellNavigationMonitor.SurfaceName : null;
+    }
+
+    private void Pause(string title, string subtitle)
+    {
+        if (_appState.DesktopInputPaused)
         {
             return;
         }
 
-        if (transition == GameFocusTransition.GameFocused)
+        _appState.DesktopInputPaused = true;
+        _desktopInput.ReleaseHeldInputs();
+        _notifications.ShowTransient(title, subtitle);
+    }
+
+    private void Resume()
+    {
+        // Only resume once nothing is asking for the pause; a game can still be focused when a
+        // shell surface closes over it, and the other way round.
+        if (_gameFocusMonitor.IsGameFocused || _shellNavigationMonitor.IsShellFocused || !_appState.DesktopInputPaused)
         {
-            _appState.DesktopInputPaused = true;
-            _appState.FocusedGameName = _gameFocusMonitor.FocusedProcessName;
-            _desktopInput.ReleaseHeldInputs();
-            _notifications.ShowTransient("Game Focused", "Desktop controls paused");
             return;
         }
 
         _appState.DesktopInputPaused = false;
-        _appState.FocusedGameName = null;
         _desktopInput.ResetMotionState();
-        _notifications.ShowTransient("Game Unfocused", "Desktop controls resumed");
+        _notifications.ShowTransient("Controls Resumed", "Desktop control is back");
     }
 
     private void SyncWithWindowState(ControllerState combined)

@@ -23,6 +23,8 @@ The console window itself **is** the application UI — there is no separate con
 - `D-PAD LEFT` / `D-PAD RIGHT` move the text caret in whatever field currently has focus, also with natural key-repeat while held.
 - Holding `LEFT TRIGGER` engages a temporary, non-persistent Precision Mode that slows the cursor (and moderately slows scrolling — enough to feel deliberate without ever feeling stuck) for fine work. `RIGHT TRIGGER` sends Enter/Return.
 - **Automatically pauses itself while a game is focused** so the controller belongs entirely to the game, and resumes the moment you Alt-Tab away — with no game list to maintain. See [Automatic Game Detection](#automatic-game-detection).
+- **Stands back while Windows navigates its own UI with the controller** (Start menu, Search, Settings, taskbar), so one button press is not acted on twice. See [Windows' Own Gamepad Navigation](#windows-own-gamepad-navigation).
+- **`START` can be pointed at a specific browser** instead of the Windows default, chosen from the browsers actually installed. See [Choosing Which Browser START Opens](#choosing-which-browser-start-opens).
 - Installs as a normal Windows application via an MSI, can start with Windows, and ships seven UI themes plus adjustable console font size.
 - `Y` toggles the app between hidden (minimized, controller drives the desktop) and shown (restored, centred, always-on-top, controller drives the menus), restoring focus to whatever window was in front before it was shown. Minimizing or restoring the window from the taskbar does exactly the same thing, so the two stay in sync — see [Console Window Behavior](#console-window-behavior).
 - `D-PAD UP` opens the built-in Windows On-Screen Keyboard (`osk.exe`).
@@ -43,7 +45,7 @@ The console window itself **is** the application UI — there is no separate con
 | B | Backspace (hold to repeat) |
 | Left Stick Click | *Nothing — intentionally unassigned* |
 | Back | Browser back (Alt+Left) |
-| Start | Open/focus default browser, or forward nav (Alt+Right) if already focused |
+| Start | Open/focus your chosen browser (Windows default unless overridden), or forward nav (Alt+Right) if already focused |
 | Y | Toggle console on top (centered) / background |
 | Left Trigger (hold) | Precision mode (slower cursor and scrolling) |
 | Right Trigger | Enter / Return |
@@ -507,6 +509,35 @@ Everything that talks to XInput, `SendInput`, or Win32 windowing is intentionall
 - **Voice input does nothing** — click/select a text field first; Win+H only opens dictation for the currently focused input.
 - **The console won't come to the foreground** — Windows' foreground-lock behavior can, in some configurations, refuse focus to background processes; the app works around this with the standard `AttachThreadInput` technique, but a fully locked-down desktop policy can still block it. The window is still made topmost even if focus itself is denied.
 - **Previously selected controller shows Unavailable after a reboot** — see the [Controller Selection](#controller-selection) limitation above; this is an XInput identity limitation, not silently switching controllers.
+
+## Windows' Own Gamepad Navigation
+
+Windows 11 navigates parts of its own interface with a controller: the Start menu, Search, Settings, the taskbar and the lock screen. That happens inside Windows, entirely independently of this application, and it causes a genuine conflict — Windows acts on whatever *it* has focused while this app acts on whatever is under the *cursor*. Put the cursor on **Shut down** while Windows has **Restart** focused, press `A`, and both fire: you get Restart.
+
+**No application can switch that off from user mode.** There is no API to suppress gamepad input to another process; every application reads the pad independently, so this app cannot "win" the button. Anything claiming otherwise is either a kernel-mode driver or wishful thinking. What this app does instead is get out of the way.
+
+### Yield To Windows UI (on by default)
+
+When a surface Windows navigates by gamepad comes to the front, XboxControllerTool pauses its own input — exactly as it already does for games — so **only one thing responds to the button**. Navigate those surfaces with the D-pad or stick as Windows intends, press `A` to activate, and the moment you leave, desktop control resumes. A toast tells you which surface took over, and the dashboard shows `PAUSED - START MENU`.
+
+The detection is deliberately narrow, and matched by *window class* where a process is ambiguous: Explorer hosts both the taskbar (gamepad-navigable) and File Explorer windows (not), so only the taskbar's `Shell_TrayWnd` class is matched and File Explorer keeps full cursor control. Turn the setting off in **Settings → Yield To Windows UI** to go back to both acting at once.
+
+### If you want cursor control everywhere instead
+
+Two real options exist, both outside this application:
+
+- **Disable the GameInput Service** (`GameInputSvc`) — this is the in-box component behind Windows' system-wide controller navigation. `services.msc` → GameInput Service → Stop, Startup type → Disabled, reboot. This app does not need it (it uses XInput and Raw Input directly), but **some games do**, so it is a system-wide trade-off. This app deliberately does not toggle it for you: silently disabling a Windows service that games depend on is not a mouse utility's decision to make.
+- **[HidHide](https://github.com/nefarius/HidHide)** — a signed kernel-mode filter driver that hides a controller from every application except the ones you whitelist. This is the only way to truly stop Windows seeing the pad while this app still does. It is a third-party kernel driver, which is why it is not bundled here.
+
+Neither has been verified by the author against this specific conflict; they are named because they are the real mechanisms, not because they are recommended.
+
+## Choosing Which Browser START Opens
+
+By default `START` opens, focuses, or navigates forward in whatever browser Windows itself is set to use. **Settings → Browser** overrides that with a specific browser.
+
+The list is built from `SOFTWARE\Clients\StartMenuInternet` — the same registry location Windows populates its own default-browser list from — reading both machine-wide and per-user installs, and **only listing browsers whose executable actually exists on disk**, so the picker can never offer something that will not launch. Cycle it with left/right like any other setting; no typing, no file path to enter, nothing to hand-edit.
+
+The choice applies to the whole `START` behaviour, not just launching: the "is it already focused?" check and the forward-navigation shortcut all follow the chosen browser. Changing it takes effect immediately, without restarting. If the chosen browser is later uninstalled, `START` falls back to the Windows default rather than failing, and the settings screen still shows the stored name so you can see what happened.
 
 ## Error Handling
 

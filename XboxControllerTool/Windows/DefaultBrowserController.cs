@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using Microsoft.Win32;
+using XboxControllerTool.Configuration;
 using XboxControllerTool.Simulation;
 
 namespace XboxControllerTool.Windows;
@@ -15,17 +16,19 @@ public enum BrowserActivationResult
 public sealed class DefaultBrowserController
 {
     private readonly IKeyboardInput _keyboard;
+    private readonly AppSettings _settings;
     private bool _resolved;
     private string? _cachedExecutablePath;
 
-    public DefaultBrowserController(IKeyboardInput keyboard)
+    public DefaultBrowserController(IKeyboardInput keyboard, AppSettings settings)
     {
         _keyboard = keyboard;
+        _settings = settings;
     }
 
     public BrowserActivationResult ActivateOrNavigateForward()
     {
-        var executablePath = ResolveDefaultBrowserExecutablePath();
+        var executablePath = ResolveExecutablePath();
         var processName = executablePath is null ? null : Path.GetFileNameWithoutExtension(executablePath);
         var windowHandles = processName is null ? [] : FindMainWindows(processName);
 
@@ -100,8 +103,20 @@ public sealed class DefaultBrowserController
         return handles;
     }
 
-    private string? ResolveDefaultBrowserExecutablePath()
+    /// <summary>
+    /// The chosen browser, or the Windows default when none is chosen. The override is re-read every
+    /// time rather than cached, because it can be changed from the settings screen while running; a
+    /// chosen browser that has since been uninstalled falls back to the default instead of failing.
+    /// </summary>
+    public string? ResolveExecutablePath()
     {
+        var chosen = _settings.BrowserExecutablePath;
+
+        if (!string.IsNullOrWhiteSpace(chosen) && File.Exists(chosen))
+        {
+            return chosen;
+        }
+
         if (_resolved)
         {
             return _cachedExecutablePath;
@@ -127,26 +142,12 @@ public sealed class DefaultBrowserController
             using var commandKey = Registry.ClassesRoot.OpenSubKey($@"{progId}\shell\open\command");
 
             return commandKey?.GetValue(null) is string command && !string.IsNullOrEmpty(command)
-                ? ExtractExecutablePath(command)
+                ? CommandLine.ExtractExecutablePath(command)
                 : null;
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
             return null;
         }
-    }
-
-    private static string? ExtractExecutablePath(string command)
-    {
-        var trimmed = command.Trim();
-
-        if (trimmed.StartsWith('"'))
-        {
-            var closingQuoteIndex = trimmed.IndexOf('"', 1);
-            return closingQuoteIndex > 0 ? trimmed[1..closingQuoteIndex] : null;
-        }
-
-        var spaceIndex = trimmed.IndexOf(' ');
-        return spaceIndex > 0 ? trimmed[..spaceIndex] : trimmed;
     }
 }

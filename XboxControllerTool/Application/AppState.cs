@@ -15,4 +15,5 @@ public sealed class AppState
     public bool ConsoleTopMost { get; set; }
     public bool DesktopInputPaused { get; set; }
     public string? FocusedGameName { get; set; }
+    public string? FocusedShellSurface { get; set; }
 }

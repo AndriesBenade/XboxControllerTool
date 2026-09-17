@@ -37,7 +37,7 @@ var controllerManager = new ControllerManager();
 var mouse = new MouseSimulator();
 var keyboard = new KeyboardSimulator();
 var onScreenKeyboard = new OnScreenKeyboardLauncher();
-var defaultBrowser = new DefaultBrowserController(keyboard);
+var defaultBrowser = new DefaultBrowserController(keyboard, settings);
 
 using var notificationManager = new NotificationManager(settings);
 var audioFeedbackPlayer = new AudioFeedbackPlayer(settings);
@@ -56,7 +56,9 @@ consoleWindow.CenterOnScreen();
 consoleWindow.Minimize();
 
 var appState = new AppState();
-var gameFocusMonitor = new GameFocusMonitor(new ForegroundWindowWatcher(), new GameDetector());
+var foregroundWindowWatcher = new ForegroundWindowWatcher();
+var gameFocusMonitor = new GameFocusMonitor(foregroundWindowWatcher, new GameDetector());
+var shellNavigationMonitor = new ShellNavigationMonitor(foregroundWindowWatcher, new ShellGamepadSurfaceDetector());
 using var rawGamepadWatcher = new RawGamepadWatcher();
 rawGamepadWatcher.Start();
 
@@ -86,6 +88,7 @@ var appLoop = new AppLoop(
     navigator,
     notificationManager,
     gameFocusMonitor,
+    shellNavigationMonitor,
     customButtons,
     settings,
     appState,

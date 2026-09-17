@@ -35,8 +35,11 @@ public static class AppStateFormatting
         : new ConsoleSegment("NORMAL", ConsoleTheme.Value);
 
     public static ConsoleSegment DesktopInput(AppState state) => state.DesktopInputPaused
-        ? new ConsoleSegment($"PAUSED - {state.FocusedGameName?.ToUpperInvariant() ?? "GAME"}", ConsoleTheme.Active)
+        ? new ConsoleSegment($"PAUSED - {PauseReason(state)}", ConsoleTheme.Active)
         : new ConsoleSegment("ACTIVE", ConsoleTheme.Positive);
+
+    private static string PauseReason(AppState state) =>
+        (state.FocusedGameName ?? state.FocusedShellSurface ?? "GAME").ToUpperInvariant();
 
     public static ConsoleSegment OnOff(bool value, string onText = "ON", string offText = "OFF") => value
         ? new ConsoleSegment(onText, ConsoleTheme.Active)

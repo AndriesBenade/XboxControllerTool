@@ -25,11 +25,20 @@ public sealed class AppSettings
 
     public bool PauseOnFocusedGame { get; set; } = true;
 
+    /// <summary>
+    /// Stands back while a Windows surface that navigates itself with a gamepad is focused, so one
+    /// button press is not acted on by both Windows and this application.
+    /// </summary>
+    public bool YieldToWindowsShell { get; set; } = true;
+
     public ControllerSelectionMode ControllerMode { get; set; } = ControllerSelectionMode.AllControllers;
     public int? SelectedControllerUserIndex { get; set; }
     public byte? SelectedControllerCapabilityType { get; set; }
     public byte? SelectedControllerCapabilitySubType { get; set; }
     public ushort? SelectedControllerCapabilityFlags { get; set; }
+
+    /// <summary>Full path to a chosen browser, or null to use whatever Windows opens links with.</summary>
+    public string? BrowserExecutablePath { get; set; }
 
     public List<CustomButtonMapping> CustomButtons { get; set; } = [];
 

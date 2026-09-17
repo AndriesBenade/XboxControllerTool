@@ -1,5 +1,6 @@
 using XboxControllerTool.Application;
 using XboxControllerTool.Configuration;
+using XboxControllerTool.Windows;
 
 namespace XboxControllerTool.ConsoleUi.Screens;
 
@@ -18,6 +19,7 @@ public sealed class SettingsScreen : ListMenuScreen
     private readonly SettingsRepository _repository;
     private readonly UiPreferences _uiPreferences;
     private readonly List<SettingRow> _rows;
+    private IReadOnlyList<BrowserChoice> _browsers = BrowserCatalog.Discover();
 
     public SettingsScreen(AppSettings settings, SettingsRepository repository, UiPreferences uiPreferences, IScreen customButtonsScreen)
     {
@@ -46,6 +48,12 @@ public sealed class SettingsScreen : ListMenuScreen
             new SettingRow("Pause In Games",
                 _ => SettingControl.Toggle(_settings.PauseOnFocusedGame),
                 _ => _settings.PauseOnFocusedGame = !_settings.PauseOnFocusedGame),
+            new SettingRow("Yield To Windows UI",
+                _ => SettingControl.Toggle(_settings.YieldToWindowsShell),
+                _ => _settings.YieldToWindowsShell = !_settings.YieldToWindowsShell),
+            new SettingRow("Browser",
+                _ => SettingControl.Cycle(CurrentBrowser().DisplayName.ToUpperInvariant()),
+                CycleBrowser),
             new SettingRow("Mouse Speed",
                 focused => SettingControl.Gauge(_settings.MouseSensitivity, 1, 40, _settings.MouseSensitivity.ToString("0.0"), focused),
                 direction => _settings.MouseSensitivity += direction * 1.0),
@@ -152,7 +160,36 @@ public sealed class SettingsScreen : ListMenuScreen
         _settings.NotificationPosition = defaults.NotificationPosition;
         _settings.AudioFeedbackEnabled = defaults.AudioFeedbackEnabled;
         _settings.PauseOnFocusedGame = defaults.PauseOnFocusedGame;
+        _settings.YieldToWindowsShell = defaults.YieldToWindowsShell;
+        _settings.BrowserExecutablePath = defaults.BrowserExecutablePath;
         _repository.Save(_settings);
+    }
+
+    private BrowserChoice CurrentBrowser() => BrowserCatalog.Resolve(_browsers, _settings.BrowserExecutablePath);
+
+    private void CycleBrowser(int direction)
+    {
+        // Browsers can be installed or removed while the app is running, so the list is refreshed
+        // whenever the user actually goes looking through it.
+        _browsers = BrowserCatalog.Discover();
+
+        var current = CurrentBrowser();
+        var index = -1;
+
+        for (var i = 0; i < _browsers.Count; i++)
+        {
+            if (string.Equals(_browsers[i].ExecutablePath, current.ExecutablePath, StringComparison.OrdinalIgnoreCase))
+            {
+                index = i;
+                break;
+            }
+        }
+
+        var next = index < 0
+            ? (direction > 0 ? 0 : _browsers.Count - 1)
+            : (index + direction + _browsers.Count) % _browsers.Count;
+
+        _settings.BrowserExecutablePath = _browsers[next].ExecutablePath;
     }
 
     private static string FormatFontSize(ConsoleFontSize size) => size switch
