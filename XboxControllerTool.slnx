@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="XboxControllerTool/XboxControllerTool.csproj" />
+  <Project Path="XboxControllerTool.Tests/XboxControllerTool.Tests.csproj" />
+</Solution>

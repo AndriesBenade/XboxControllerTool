@@ -1,0 +1,70 @@
+using System.Runtime.InteropServices;
+
+namespace XboxControllerTool.Simulation;
+
+public sealed class KeyboardSimulator : IKeyboardInput
+{
+    public void StartVoiceTyping()
+    {
+        Send(KeyDown(NativeInput.VkLeftWindows), KeyDown(NativeInput.VkH), KeyUp(NativeInput.VkH), KeyUp(NativeInput.VkLeftWindows));
+    }
+
+    public void StopVoiceTyping()
+    {
+        Send(KeyDown(NativeInput.VkLeftWindows), KeyDown(NativeInput.VkH), KeyUp(NativeInput.VkH), KeyUp(NativeInput.VkLeftWindows));
+        Send(KeyDown(NativeInput.VkEscape), KeyUp(NativeInput.VkEscape));
+    }
+
+    public void SendShowDesktop()
+    {
+        Send(KeyDown(NativeInput.VkLeftWindows), KeyDown(NativeInput.VkD), KeyUp(NativeInput.VkD), KeyUp(NativeInput.VkLeftWindows));
+    }
+
+    public void SendEscape() => SendKeySequence(NativeInput.VkEscape);
+
+    public void SendAltLeft()
+    {
+        Send(KeyDown(NativeInput.VkMenu), KeyDown(NativeInput.VkLeft), KeyUp(NativeInput.VkLeft), KeyUp(NativeInput.VkMenu));
+    }
+
+    public void SendAltRight()
+    {
+        Send(KeyDown(NativeInput.VkMenu), KeyDown(NativeInput.VkRight), KeyUp(NativeInput.VkRight), KeyUp(NativeInput.VkMenu));
+    }
+
+    public void SendEnter() => SendKeySequence(NativeInput.VkReturn);
+
+    public void ArrowLeftDown() => Send(KeyDown(NativeInput.VkLeft));
+
+    public void ArrowLeftUp() => Send(KeyUp(NativeInput.VkLeft));
+
+    public void ArrowRightDown() => Send(KeyDown(NativeInput.VkRight));
+
+    public void ArrowRightUp() => Send(KeyUp(NativeInput.VkRight));
+
+    public void BackspaceDown() => Send(KeyDown(NativeInput.VkBack));
+
+    public void BackspaceUp() => Send(KeyUp(NativeInput.VkBack));
+
+    private static void SendKeySequence(ushort virtualKey)
+    {
+        Send(KeyDown(virtualKey), KeyUp(virtualKey));
+    }
+
+    private static Input KeyDown(ushort virtualKey) => new()
+    {
+        type = NativeInput.InputKeyboard,
+        u = new InputUnion { Keyboard = new KeyboardInput { wVk = virtualKey } }
+    };
+
+    private static Input KeyUp(ushort virtualKey) => new()
+    {
+        type = NativeInput.InputKeyboard,
+        u = new InputUnion { Keyboard = new KeyboardInput { wVk = virtualKey, dwFlags = NativeInput.KeyEventKeyUp } }
+    };
+
+    private static void Send(params Input[] inputs)
+    {
+        NativeInput.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Input>());
+    }
+}

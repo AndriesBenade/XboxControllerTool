@@ -1,0 +1,76 @@
+﻿# Visual Studio
+
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build output
+
+bin/
+obj/
+
+# Test results
+
+TestResults/
+*.trx
+
+# Visual Studio Code
+
+.vscode/
+
+# JetBrains Rider / ReSharper
+
+.idea/
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# NuGet
+
+packages/
+
+# Coverage
+
+coverage/
+coverage*.xml
+*.coverage
+*.coveragexml
+
+# Logs
+
+*.log
+logs/
+
+# OS files
+
+.DS_Store
+Thumbs.db
+
+# Local / machine-specific configuration
+
+*.local.json
+*.local.config
+
+# Local environment files
+
+.env
+.env.*
+
+# Temporary files
+
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# Publish output
+
+publish/
+
+# Generated files
+
+GeneratedFiles/
+artifacts/
