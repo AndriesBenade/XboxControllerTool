@@ -4,7 +4,7 @@ A Windows console application that turns an Xbox / XInput-compatible controller 
 
 ## Download
 
-**[⬇ Download XboxControllerTool 1.0.0 (Windows Installer)](https://github.com/AndriesBenade/XboxControllerTool/raw/master/Releases/XboxControllerTool-1.0.0.msi)**
+**[⬇ Download XboxControllerTool 1.1.0 (Windows Installer)](https://github.com/AndriesBenade/XboxControllerTool/raw/master/Releases/XboxControllerTool-1.1.0.msi)**
 
 Run the `.msi` and you're done — no Visual Studio, no .NET SDK, no source code, nothing to copy by hand. The .NET runtime is bundled inside the installer. See [Installing](#installing-end-users).
 
@@ -21,7 +21,7 @@ The console window itself **is** the application UI — there is no separate con
 - `START` is context-aware browser control rather than a fixed shortcut: opens/focuses your default browser, or sends Alt+Right (forward navigation) if it's already focused. See [Browser Control](#browser-control).
 - `LEFT BUMPER` / `RIGHT BUMPER` send Win+D (Show Desktop) / Escape.
 - `D-PAD LEFT` / `D-PAD RIGHT` move the text caret in whatever field currently has focus, also with natural key-repeat while held.
-- Holding `LEFT TRIGGER` engages a temporary, non-persistent Precision Mode that slows the cursor (and moderately slows scrolling — enough to feel deliberate without ever feeling stuck) for fine work. `RIGHT TRIGGER` sends Enter/Return.
+- Holding `LEFT TRIGGER` engages a temporary, non-persistent Precision Mode that slows the cursor (and moderately slows scrolling — enough to feel deliberate without ever feeling stuck) for fine work, and **hands the D-pad back to Windows** so its own gamepad navigation can drive menus uncontested. `RIGHT TRIGGER` sends Enter/Return.
 - **Automatically pauses itself while a game is focused** so the controller belongs entirely to the game, and resumes the moment you Alt-Tab away — with no game list to maintain. See [Automatic Game Detection](#automatic-game-detection).
 - **Stands back while Windows navigates its own UI with the controller** (Start menu, Search, Settings), so one button press is not acted on twice. See [Windows' Own Gamepad Navigation](#windows-own-gamepad-navigation).
 - **`START` can be pointed at a specific browser** instead of the Windows default, chosen from the browsers actually installed. See [Choosing Which Browser START Opens](#choosing-which-browser-start-opens).
@@ -48,7 +48,7 @@ The console window itself **is** the application UI — there is no separate con
 | Back | Browser back (Alt+Left) |
 | Start | Open/focus your chosen browser (Windows default unless overridden), or forward nav (Alt+Right) if already focused |
 | Y | Toggle console on top (centered) / background |
-| Left Trigger (hold) | Precision mode (slower cursor and scrolling) |
+| Left Trigger (hold) | Precision mode (slower cursor and scrolling, D-pad handed back to Windows) |
 | Right Trigger | Enter / Return |
 | Left Bumper | Show desktop (Win+D) |
 | Right Bumper | Escape |
@@ -59,6 +59,8 @@ The console window itself **is** the application UI — there is no separate con
 | Guide, other spare buttons | Whatever you map them to — see [Custom Button Mappings](#custom-button-mappings) |
 
 **Left Stick Click does nothing at all** — no key, no click, no notification. Left stick *movement* still drives the mouse as normal; only the click is unassigned, deliberately, so it can't fire by accident when you push the stick.
+
+**While `LEFT TRIGGER` is held, the D-pad does nothing at all** — no arrow keys, no On-Screen Keyboard, no voice toggle. Windows 11 navigates its own menus from the D-pad directly, so anything injected here would be acted on twice; holding `LT` is a deliberate way to hand those four directions back and navigate a menu cleanly. If a direction was already held when `LT` went down, the arrow key is released rather than left stuck repeating. The left stick still moves the cursor, at precision speed.
 
 Holding both triggers at once favors Precision Mode. Controller mode is changed only from the **Controller Selection** menu — pressing `BACK` no longer has a global side effect, specifically so it can't be pressed accidentally (e.g. while playing a game with the same pad) and silently drop you back to All Controllers.
 

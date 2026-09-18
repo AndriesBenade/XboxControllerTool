@@ -215,6 +215,15 @@ public sealed class DesktopInputController
             _keyboard.SendEscape();
         }
 
+        // Holding LT hands the D-pad back to Windows. Its own gamepad navigation reads the D-pad
+        // directly, so anything injected here would be acted on twice in a menu that already
+        // responds to it.
+        if (_precisionTracker.IsActive)
+        {
+            ReleaseHeldDirectionKeys();
+            return;
+        }
+
         if (transitions.WasPressed(GamepadButton.DPadLeft))
         {
             _keyboard.ArrowLeftDown();
@@ -248,6 +257,25 @@ public sealed class DesktopInputController
         if (transitions.WasPressed(GamepadButton.DPadDown))
         {
             ToggleVoiceInput();
+        }
+    }
+
+    /// <summary>
+    /// Lets go of an arrow key that was already down when LT was pressed, so engaging precision mode
+    /// mid-hold cannot leave the key stuck down for Windows to repeat forever.
+    /// </summary>
+    private void ReleaseHeldDirectionKeys()
+    {
+        if (_arrowLeftHeld)
+        {
+            _keyboard.ArrowLeftUp();
+            _arrowLeftHeld = false;
+        }
+
+        if (_arrowRightHeld)
+        {
+            _keyboard.ArrowRightUp();
+            _arrowRightHeld = false;
         }
     }
 
