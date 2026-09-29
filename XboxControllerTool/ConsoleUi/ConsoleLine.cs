@@ -1,5 +1,8 @@
 namespace XboxControllerTool.ConsoleUi;
 
+/// <summary>A span of columns on a row that runs an action when clicked.</summary>
+public readonly record struct ClickRegion(int StartColumn, int EndColumn, MenuAction Action);
+
 public sealed class ConsoleLine : IEquatable<ConsoleLine>
 {
     public IReadOnlyList<ConsoleSegment> Segments { get; }
@@ -10,6 +13,12 @@ public sealed class ConsoleLine : IEquatable<ConsoleLine>
     /// changes what is drawn, and the renderer compares lines to decide what to redraw.
     /// </summary>
     public int ItemIndex { get; init; } = -1;
+
+    /// <summary>
+    /// Column ranges on this row that trigger an action when clicked, used to make the hint bar at
+    /// the bottom of every screen do what it says rather than only describe it.
+    /// </summary>
+    public IReadOnlyList<ClickRegion> Regions { get; init; } = [];
 
     public ConsoleLine(params ConsoleSegment[] segments)
     {
@@ -24,6 +33,8 @@ public sealed class ConsoleLine : IEquatable<ConsoleLine>
     public static readonly ConsoleLine Empty = new(Array.Empty<ConsoleSegment>());
 
     public ConsoleLine ForItem(int itemIndex) => new(Segments) { ItemIndex = itemIndex };
+
+    public ConsoleLine WithRegions(IReadOnlyList<ClickRegion> regions) => new(Segments) { ItemIndex = ItemIndex, Regions = regions };
 
     public static implicit operator ConsoleLine(string text) => new(new ConsoleSegment(text));
 

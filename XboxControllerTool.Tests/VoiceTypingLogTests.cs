@@ -63,7 +63,7 @@ public class VoiceTypingLogTests : IDisposable
         // The work runs in the background so the input loop is never blocked by the shell, which
         // means the log is being appended to while this reads it.
         var deadline = DateTime.UtcNow.AddSeconds(15);
-        while (DateTime.UtcNow < deadline && !ReadShared(_logPath).Contains("unfiltered survey"))
+        while (DateTime.UtcNow < deadline && !ReadShared(_logPath).Contains("survey complete"))
         {
             Thread.Sleep(100);
         }
@@ -72,6 +72,7 @@ public class VoiceTypingLogTests : IDisposable
 
         Assert.Contains("everything on screen when voice typing was switched off", contents);
         Assert.Contains("unfiltered survey", contents);
+        Assert.Contains("survey complete", contents);
         Assert.Contains("every top level window", contents);
 
         // The snapshot has to actually list windows, or it would prove nothing when the panel lingers.

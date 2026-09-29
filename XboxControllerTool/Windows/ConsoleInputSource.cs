@@ -10,7 +10,7 @@ public enum ConsoleInputKind
     Wheel
 }
 
-public readonly record struct ConsoleInputEvent(ConsoleInputKind Kind, MenuAction Action, int Row);
+public readonly record struct ConsoleInputEvent(ConsoleInputKind Kind, MenuAction Action, int Row, int Column);
 
 /// <summary>
 /// Lets the keyboard and mouse drive the menu, so the app is usable at the desk as well as from the
@@ -38,6 +38,7 @@ public sealed class ConsoleInputSource : IDisposable
     private const ushort MouseEventType = 0x0002;
 
     private const uint LeftButtonPressed = 0x0001;
+    private const uint RightButtonPressed = 0x0002;
     private const uint MouseMoved = 0x0001;
     private const uint MouseWheeled = 0x0004;
     private const uint DoubleClick = 0x0002;
@@ -79,6 +80,9 @@ public sealed class ConsoleInputSource : IDisposable
     }
 
     public bool IsAvailable => _ready;
+
+    /// <summary>Marshalled size of one console input record; 20 bytes on x64 when laid out right.</summary>
+    public static int RecordSize => Marshal.SizeOf<InputRecord>();
 
     /// <summary>
     /// Takes whatever has arrived without ever waiting. The input loop runs every few milliseconds
@@ -137,7 +141,7 @@ public sealed class ConsoleInputSource : IDisposable
             _ => MenuAction.None
         };
 
-        return action == MenuAction.None ? null : new ConsoleInputEvent(ConsoleInputKind.Key, action, -1);
+        return action == MenuAction.None ? null : new ConsoleInputEvent(ConsoleInputKind.Key, action, -1, -1);
     }
 
     private ConsoleInputEvent? TranslateMouse(MouseEventRecord mouse)
@@ -148,26 +152,32 @@ public sealed class ConsoleInputSource : IDisposable
             var delta = (short)(mouse.ButtonState >> 16);
             return delta == 0
                 ? null
-                : new ConsoleInputEvent(ConsoleInputKind.Wheel, delta > 0 ? MenuAction.Up : MenuAction.Down, -1);
+                : new ConsoleInputEvent(ConsoleInputKind.Wheel, delta > 0 ? MenuAction.Up : MenuAction.Down, -1, -1);
         }
 
-        var wasPressed = (_previousButtons & LeftButtonPressed) != 0;
-        var isPressed = (mouse.ButtonState & LeftButtonPressed) != 0;
+        var previous = _previousButtons;
         _previousButtons = mouse.ButtonState;
 
-        // Only the moment the button goes down counts, so holding it does not repeat, and a move
-        // with the button already held is a drag rather than a new click.
-        if (!isPressed || wasPressed || (mouse.EventFlags & MouseMoved) != 0)
+        // Only the moment a button goes down counts, so holding it does not repeat, and a move with
+        // a button already held is a drag rather than a new click.
+        if ((mouse.EventFlags & MouseMoved) != 0 || (mouse.EventFlags & ~DoubleClick) != 0)
         {
             return null;
         }
 
-        if ((mouse.EventFlags & ~DoubleClick) != 0)
+        // Right click backs out from anywhere, which matters because most screens have nothing on
+        // them that goes backwards - without it a mouse could get into a screen but not out.
+        if ((mouse.ButtonState & RightButtonPressed) != 0 && (previous & RightButtonPressed) == 0)
+        {
+            return new ConsoleInputEvent(ConsoleInputKind.Key, MenuAction.Cancel, -1, -1);
+        }
+
+        if ((mouse.ButtonState & LeftButtonPressed) == 0 || (previous & LeftButtonPressed) != 0)
         {
             return null;
         }
 
-        return new ConsoleInputEvent(ConsoleInputKind.Click, MenuAction.Confirm, mouse.MousePosition.Y);
+        return new ConsoleInputEvent(ConsoleInputKind.Click, MenuAction.Confirm, mouse.MousePosition.Y, mouse.MousePosition.X);
     }
 
     public void Dispose()
@@ -185,14 +195,19 @@ public sealed class ConsoleInputSource : IDisposable
         public short Y;
     }
 
-    [StructLayout(LayoutKind.Sequential)]
+    /// <summary>
+    /// Character is a ushort rather than a char on purpose. A char in a struct marshals by the
+    /// struct CharSet, which defaults to Ansi and would make it one byte - changing the size of
+    /// every record and shredding everything after the first one in a batch read.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct KeyEventRecord
     {
         [MarshalAs(UnmanagedType.Bool)] public bool KeyDown;
         public ushort RepeatCount;
         public ushort VirtualKeyCode;
         public ushort VirtualScanCode;
-        public char Character;
+        public ushort Character;
         public uint ControlKeyState;
     }
 
@@ -205,7 +220,7 @@ public sealed class ConsoleInputSource : IDisposable
         public uint EventFlags;
     }
 
-    [StructLayout(LayoutKind.Explicit)]
+    [StructLayout(LayoutKind.Explicit, CharSet = CharSet.Unicode)]
     private struct InputRecord
     {
         [FieldOffset(0)] public ushort EventType;

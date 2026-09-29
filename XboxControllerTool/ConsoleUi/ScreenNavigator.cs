@@ -47,21 +47,30 @@ public sealed class ScreenNavigator
     /// row that holds no item - a heading, a border, a line of explanation - so a stray click on
     /// the frame does nothing rather than activating whatever happened to be highlighted.
     /// </summary>
-    public bool TryClickRow(int row)
+    public bool TryClickRow(int row, int column)
     {
         if (row < 0 || row >= _renderedLines.Count)
         {
             return false;
         }
 
-        var itemIndex = _renderedLines[row].ItemIndex;
+        var line = _renderedLines[row];
 
-        if (itemIndex < 0)
+        foreach (var region in line.Regions)
+        {
+            if (column >= region.StartColumn && column <= region.EndColumn)
+            {
+                Dispatch(region.Action);
+                return true;
+            }
+        }
+
+        if (line.ItemIndex < 0)
         {
             return false;
         }
 
-        Current.SelectItem(itemIndex);
+        Current.SelectItem(line.ItemIndex);
         Dispatch(MenuAction.Confirm);
         return true;
     }

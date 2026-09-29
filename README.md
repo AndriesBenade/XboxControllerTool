@@ -4,7 +4,7 @@ A Windows console application that turns an Xbox / XInput-compatible controller 
 
 ## Download
 
-**[⬇ Download XboxControllerTool 1.2.0 (Windows Installer)](https://github.com/AndriesBenade/XboxControllerTool/raw/master/Releases/XboxControllerTool-1.2.0.msi)**
+**[⬇ Download XboxControllerTool 1.2.1 (Windows Installer)](https://github.com/AndriesBenade/XboxControllerTool/raw/master/Releases/XboxControllerTool-1.2.1.msi)**
 
 Run the `.msi` and you're done — no Visual Studio, no .NET SDK, no source code, nothing to copy by hand. The .NET runtime is bundled inside the installer. See [Installing](#installing-end-users).
 
@@ -86,11 +86,15 @@ While the console is in front, the menu also answers to the keyboard and mouse, 
 | Arrow keys | Move selection / adjust the selected setting |
 | Enter or Space | Select / confirm |
 | Escape or Backspace | Back / cancel |
+| Right click | Back / cancel, from anywhere on the screen |
 | Delete or X | Clear (where `X` clears, e.g. a custom mapping) |
 | Scroll wheel | Move selection |
 | Left click on a row | Select **that** row and activate it |
+| Left click a hint at the bottom | Runs that hint, so `[ B ] Back` really does go back |
 
-Clicking picks the row you actually clicked rather than activating whatever was highlighted: every selectable row records which item it draws, and a click on a heading, border or hint bar does nothing at all.
+Clicking picks the row you actually clicked rather than activating whatever was highlighted: every selectable row records which item it draws, and a click on a heading or border does nothing at all.
+
+Getting **out** of a screen matters as much as getting in, and with a mouse there is nothing on a screen that goes backwards. So the hint bar is live: the columns occupied by `[ B ] Back` are a click target, and clicking beside them does nothing. Right-clicking anywhere backs out too.
 
 Mouse input in a console requires **quick-edit mode off**, because quick edit claims clicks for text selection. The app turns it off while running and puts the original mode back on exit, so the trade is that click-dragging to select text in this window stops working while the app is up.
 

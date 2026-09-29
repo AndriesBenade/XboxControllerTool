@@ -138,7 +138,7 @@ public sealed class AppLoop
             }
 
             acted |= input.Kind == ConsoleInputKind.Click
-                ? _navigator.TryClickRow(input.Row)
+                ? _navigator.TryClickRow(input.Row, input.Column)
                 : Dispatched(input.Action);
         }
 

@@ -69,7 +69,7 @@ public class MenuClickTargetTests : IDisposable
         // Rendering is what records the row map, exactly as it happens at runtime.
         RenderInto(navigator);
 
-        Assert.True(navigator.TryClickRow(thirdItemRow));
+        Assert.True(navigator.TryClickRow(thirdItemRow, column: 10));
 
         // The third destination opens the status screen, so the click must have moved the highlight.
         Assert.IsType<StatusScreen>(navigator.Current);
@@ -85,7 +85,7 @@ public class MenuClickTargetTests : IDisposable
 
         RenderInto(navigator);
 
-        Assert.False(navigator.TryClickRow(frameRow));
+        Assert.False(navigator.TryClickRow(frameRow, column: 10));
         Assert.Same(home, navigator.Current);
     }
 
@@ -97,7 +97,7 @@ public class MenuClickTargetTests : IDisposable
         var navigator = new ScreenNavigator(BuildHome());
         RenderInto(navigator);
 
-        Assert.False(navigator.TryClickRow(row));
+        Assert.False(navigator.TryClickRow(row, column: 10));
     }
 
     [Fact]

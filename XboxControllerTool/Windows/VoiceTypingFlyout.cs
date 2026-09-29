@@ -115,6 +115,7 @@ public sealed class VoiceTypingFlyout : IVoiceTypingFlyout
         _log.Snapshot("input host processes running", inputHostProcesses);
         _log.Snapshot("every top level window, whatever its state", DescribeEveryTopLevelWindow());
         _log.Snapshot("windows owned by input host processes, with their children", DescribeInputHostTree());
+        _log.Line("--- survey complete ---");
     }
 
     /// <summary>
