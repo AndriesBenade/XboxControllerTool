@@ -140,7 +140,8 @@ public sealed class HomeScreen : ListMenuScreen
                 _destinations[i].Label,
                 _destinations[i].Description,
                 focused: i == SelectedIndex,
-                MenuLabelWidth));
+                MenuLabelWidth,
+                itemIndex: i));
         }
 
         LayoutMetrics.PanelPad(lines);

@@ -38,6 +38,14 @@ public abstract class ListMenuScreen : IScreen
 
     public virtual void OnEnter() => SelectedIndex = 0;
 
+    public virtual void SelectItem(int index)
+    {
+        if (ItemCount > 0)
+        {
+            SelectedIndex = Math.Clamp(index, 0, ItemCount - 1);
+        }
+    }
+
     protected virtual NavigationCommand OnConfirm(int index) => NavigationCommand.None;
 
     protected virtual NavigationCommand OnCancel() => NavigationCommand.Pop;

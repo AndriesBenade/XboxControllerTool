@@ -5,7 +5,7 @@ public static class MenuItemRow
     private const int FocusBarWidth = 3;
     private const int BadgeWidth = 7;
 
-    public static ConsoleLine Build(string label, string description, bool focused, int labelWidth, string badgeButton = ControllerButton.A)
+    public static ConsoleLine Build(string label, string description, bool focused, int labelWidth, string badgeButton = ControllerButton.A, int itemIndex = -1)
     {
         var descriptionWidth = Panel.ContentWidth - FocusBarWidth - labelWidth - BadgeWidth;
 
@@ -22,10 +22,10 @@ public static class MenuItemRow
             ? ControllerButton.Badge(badgeButton, BadgeWidth)
             : ControllerButton.BadgeSpacer(BadgeWidth));
 
-        return Panel.Row(segments.ToArray());
+        return Panel.Row(segments.ToArray()).ForItem(itemIndex);
     }
 
-    public static ConsoleLine BuildSetting(string label, bool focused, ConsoleSegment[] control, int labelWidth, string badgeButton)
+    public static ConsoleLine BuildSetting(string label, bool focused, ConsoleSegment[] control, int labelWidth, string badgeButton, int itemIndex = -1)
     {
         var controlWidth = Panel.ContentWidth - FocusBarWidth - labelWidth - BadgeWidth;
         var controlLength = control.Sum(segment => segment.Text.Length);
@@ -45,6 +45,6 @@ public static class MenuItemRow
             ? ControllerButton.Badge(badgeButton, BadgeWidth)
             : ControllerButton.BadgeSpacer(BadgeWidth));
 
-        return Panel.Row(segments.ToArray());
+        return Panel.Row(segments.ToArray()).ForItem(itemIndex);
     }
 }

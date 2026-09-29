@@ -4,7 +4,7 @@ A Windows console application that turns an Xbox / XInput-compatible controller 
 
 ## Download
 
-**[⬇ Download XboxControllerTool 1.1.0 (Windows Installer)](https://github.com/AndriesBenade/XboxControllerTool/raw/master/Releases/XboxControllerTool-1.1.0.msi)**
+**[⬇ Download XboxControllerTool 1.2.0 (Windows Installer)](https://github.com/AndriesBenade/XboxControllerTool/raw/master/Releases/XboxControllerTool-1.2.0.msi)**
 
 Run the `.msi` and you're done — no Visual Studio, no .NET SDK, no source code, nothing to copy by hand. The .NET runtime is bundled inside the installer. See [Installing](#installing-end-users).
 
@@ -25,6 +25,8 @@ The console window itself **is** the application UI — there is no separate con
 - **Automatically pauses itself while a game is focused** so the controller belongs entirely to the game, and resumes the moment you Alt-Tab away — with no game list to maintain. See [Automatic Game Detection](#automatic-game-detection).
 - **Stands back while Windows navigates its own UI with the controller** (Start menu, Search, Settings), so one button press is not acted on twice. See [Windows' Own Gamepad Navigation](#windows-own-gamepad-navigation).
 - **`START` can be pointed at a specific browser** instead of the Windows default, chosen from the browsers actually installed. See [Choosing Which Browser START Opens](#choosing-which-browser-start-opens).
+- **Keep Screen On** behaves like someone who is still there, so the machine never blanks the screen, sleeps, or shows you as away. Off by default; the interval is configurable. See [Keep Screen On](#keep-screen-on).
+- **The menu takes keyboard and mouse as well as the controller** — arrow keys, Enter, Escape, the scroll wheel, and clicking a row directly. See [Driving the menu without a controller](#driving-the-menu-without-a-controller).
 - Installs as a normal Windows application via an MSI, can start with Windows, and ships seven UI themes plus adjustable console font size.
 - `Y` toggles the app between hidden (minimized, controller drives the desktop) and shown (restored, centred, always-on-top, controller drives the menus), restoring focus to whatever window was in front before it was shown. Minimizing or restoring the window from the taskbar does exactly the same thing, so the two stay in sync — see [Console Window Behavior](#console-window-behavior).
 - `D-PAD UP` opens the built-in Windows On-Screen Keyboard (`osk.exe`).
@@ -74,6 +76,23 @@ While the console is focused (after pressing `Y`), the same controller switches 
 | Left / Right | Adjust the selected setting |
 
 `B` is intentionally dual-purpose: Backspace while controlling the desktop, Back/Cancel while navigating the menu — never both at once, since only one context is active at a time.
+
+### Driving the menu without a controller
+
+While the console is in front, the menu also answers to the keyboard and mouse, so the app is usable at a desk and not only from the couch:
+
+| Input | Action |
+|---|---|
+| Arrow keys | Move selection / adjust the selected setting |
+| Enter or Space | Select / confirm |
+| Escape or Backspace | Back / cancel |
+| Delete or X | Clear (where `X` clears, e.g. a custom mapping) |
+| Scroll wheel | Move selection |
+| Left click on a row | Select **that** row and activate it |
+
+Clicking picks the row you actually clicked rather than activating whatever was highlighted: every selectable row records which item it draws, and a click on a heading, border or hint bar does nothing at all.
+
+Mouse input in a console requires **quick-edit mode off**, because quick edit claims clicks for text selection. The app turns it off while running and puts the original mode back on exit, so the trade is that click-dragging to select text in this window stops working while the app is up.
 
 This mode switch is deliberate and important: while navigating the menu, the controller **only** drives the menu. Pressing `A` to confirm a menu item never also left-clicks whatever window happens to be underneath the console. See [Architecture](#architecture) for how that boundary is enforced.
 
@@ -538,6 +557,23 @@ The signal that actually changes is DWM cloaking — `DWMWA_CLOAKED` is `2` (clo
 3. `ShowWindow(SW_HIDE)` as a last resort. This makes the panel go away for certain, but Windows still believes it is open, so it is only reached after the polite options have failed.
 
 Every step, and a snapshot of every window actually on screen at the moment voice typing was switched off, is written to **`%AppData%\XboxControllerTool\voice-typing.log`**. This behaviour cannot be reproduced in a test — it needs a real machine, a microphone and someone speaking — so the log is what turns "it still does not close" into a named window that ignored a named message. The log is capped at 256 KB and is safe to delete.
+
+## Keep Screen On
+
+**Settings → Keep Screen On** stops the machine going idle by behaving like someone who is still there. Off by default. **Keep Awake Every** sets the interval, 60 seconds by default, adjustable from 15 seconds to 10 minutes.
+
+Every tick it asks Windows how long it has been since *any* input. If that is under the interval, nothing happens — you are plainly still there. If it is over, the cursor is walked around a small circle a few pixels wide and ends **exactly** where it started, so it never drifts however many times it runs.
+
+That is deliberately real input rather than just a "keep the display on" flag. It resets the same idle clock Windows uses to blank the screen and sleep the machine, so it also keeps you from going idle or away in anything that works that status out the same way.
+
+Some details that matter in practice:
+
+- **Typing counts as activity**, not just mouse movement. Nudging the cursor out from under someone mid-sentence would be worse than useless.
+- **It never runs while a game is focused**, because moving the mouse into a game swings the camera. A circle already under way still finishes, so the cursor is never abandoned part-way round.
+- **The circle is spread one step per tick**, not injected all at once: the input loop runs every 8 ms and must not block, and a gradual movement reads like a hand on a mouse rather than a glitch.
+- **It cannot run away.** Even if a nudge somehow failed to register as input, a second guard stops another one starting before the interval has passed.
+
+The load-bearing assumption — that injected movement resets Windows' own idle clock — is not taken on trust: a test performs the real nudge through the real injector on the build machine and fails if the idle clock does not drop.
 
 ## Windows' Own Gamepad Navigation
 

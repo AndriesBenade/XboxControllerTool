@@ -160,5 +160,5 @@ public sealed class ButtonMappingScreen : ListMenuScreen
     }
 
     private ConsoleLine Row(int index, string label, ConsoleSegment[] control, string badge) =>
-        MenuItemRow.BuildSetting(label, SelectedIndex == index, control, LabelWidth, badge);
+        MenuItemRow.BuildSetting(label, SelectedIndex == index, control, LabelWidth, badge, index);
 }

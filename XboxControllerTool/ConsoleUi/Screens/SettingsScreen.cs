@@ -54,6 +54,13 @@ public sealed class SettingsScreen : ListMenuScreen
             new SettingRow("Browser",
                 _ => SettingControl.Cycle(CurrentBrowser().DisplayName.ToUpperInvariant()),
                 CycleBrowser),
+            new SettingRow("Keep Screen On",
+                _ => SettingControl.Toggle(_settings.KeepScreenOnEnabled),
+                _ => _settings.KeepScreenOnEnabled = !_settings.KeepScreenOnEnabled),
+            new SettingRow("Keep Awake Every",
+                focused => SettingControl.Gauge(
+                    _settings.KeepScreenOnIntervalSeconds, 15, 600, $"{_settings.KeepScreenOnIntervalSeconds}s", focused),
+                direction => _settings.KeepScreenOnIntervalSeconds += direction * 15),
             new SettingRow("Mouse Speed",
                 focused => SettingControl.Gauge(_settings.MouseSensitivity, 1, 40, _settings.MouseSensitivity.ToString("0.0"), focused),
                 direction => _settings.MouseSensitivity += direction * 1.0),
@@ -110,7 +117,8 @@ public sealed class SettingsScreen : ListMenuScreen
                 focused,
                 row.RenderControl(focused),
                 LabelWidth,
-                row.Adjust is null ? ControllerButton.A : ControllerButton.LeftRight));
+                row.Adjust is null ? ControllerButton.A : ControllerButton.LeftRight,
+                i));
         }
 
         LayoutMetrics.PanelPad(lines);
@@ -162,6 +170,8 @@ public sealed class SettingsScreen : ListMenuScreen
         _settings.PauseOnFocusedGame = defaults.PauseOnFocusedGame;
         _settings.YieldToWindowsShell = defaults.YieldToWindowsShell;
         _settings.BrowserExecutablePath = defaults.BrowserExecutablePath;
+        _settings.KeepScreenOnEnabled = defaults.KeepScreenOnEnabled;
+        _settings.KeepScreenOnIntervalSeconds = defaults.KeepScreenOnIntervalSeconds;
         _repository.Save(_settings);
     }
 

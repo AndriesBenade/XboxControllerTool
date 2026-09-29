@@ -61,7 +61,8 @@ public sealed class ControllerSelectionScreen : ListMenuScreen
                 Options[i].Label,
                 Options[i].Description,
                 focused: i == SelectedIndex,
-                MenuLabelWidth));
+                MenuLabelWidth,
+                itemIndex: i));
         }
 
         lines.Add(Panel.Blank());

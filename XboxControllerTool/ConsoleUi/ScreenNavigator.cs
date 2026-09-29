@@ -5,6 +5,8 @@ public sealed class ScreenNavigator
     private readonly Stack<IScreen> _stack = new();
     private readonly ConsoleFrameRenderer _renderer = new();
 
+    private IReadOnlyList<ConsoleLine> _renderedLines = [];
+
     public ScreenNavigator(IScreen rootScreen)
     {
         _stack.Push(rootScreen);
@@ -34,7 +36,34 @@ public sealed class ScreenNavigator
         }
 
         LayoutMetrics.Refresh();
-        _renderer.Render(Current.BuildLines());
+
+        // Kept so a mouse click can be turned back into the item drawn on that row.
+        _renderedLines = Current.BuildLines();
+        _renderer.Render(_renderedLines);
+    }
+
+    /// <summary>
+    /// Handles a click on a console row, choosing whatever item is drawn there. Returns false for a
+    /// row that holds no item - a heading, a border, a line of explanation - so a stray click on
+    /// the frame does nothing rather than activating whatever happened to be highlighted.
+    /// </summary>
+    public bool TryClickRow(int row)
+    {
+        if (row < 0 || row >= _renderedLines.Count)
+        {
+            return false;
+        }
+
+        var itemIndex = _renderedLines[row].ItemIndex;
+
+        if (itemIndex < 0)
+        {
+            return false;
+        }
+
+        Current.SelectItem(itemIndex);
+        Dispatch(MenuAction.Confirm);
+        return true;
     }
 
     private void Apply(NavigationCommand command)

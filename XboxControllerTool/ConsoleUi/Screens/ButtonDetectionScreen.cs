@@ -62,7 +62,8 @@ public sealed class ButtonDetectionScreen : ListMenuScreen
                 SelectedIndex == 0,
                 SettingControl.Action("Choose a key combination"),
                 LabelWidth,
-                ControllerButton.A));
+                ControllerButton.A,
+                itemIndex: 0));
         }
         else
         {

@@ -31,6 +31,12 @@ public sealed class AppSettings
     /// </summary>
     public bool YieldToWindowsShell { get; set; } = true;
 
+    /// <summary>Behaves like someone who is still there, so the machine does not go idle or sleep.</summary>
+    public bool KeepScreenOnEnabled { get; set; }
+
+    /// <summary>How long with no input at all before the cursor is nudged.</summary>
+    public int KeepScreenOnIntervalSeconds { get; set; } = 60;
+
     public ControllerSelectionMode ControllerMode { get; set; } = ControllerSelectionMode.AllControllers;
     public int? SelectedControllerUserIndex { get; set; }
     public byte? SelectedControllerCapabilityType { get; set; }
@@ -55,6 +61,7 @@ public sealed class AppSettings
         StickDeadZone = Math.Clamp(StickDeadZone, 0.02, 0.5);
         ScrollDeadZone = Math.Clamp(ScrollDeadZone, 0.02, 0.5);
         NotificationDurationMs = Math.Clamp(NotificationDurationMs, 800, 8000);
+        KeepScreenOnIntervalSeconds = Math.Clamp(KeepScreenOnIntervalSeconds, 15, 600);
 
         if (string.IsNullOrWhiteSpace(ThemeName))
         {

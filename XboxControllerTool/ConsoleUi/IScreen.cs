@@ -9,4 +9,9 @@ public interface IScreen
     void OnEnter()
     {
     }
+
+    /// <summary>Moves the highlight to a given item, so a mouse click can choose a row directly.</summary>
+    void SelectItem(int index)
+    {
+    }
 }

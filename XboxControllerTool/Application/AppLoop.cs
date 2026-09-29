@@ -25,6 +25,8 @@ public sealed class AppLoop
     private readonly GameFocusMonitor _gameFocusMonitor;
     private readonly ShellNavigationMonitor _shellNavigationMonitor;
     private readonly CustomButtonService _customButtons;
+    private readonly KeepAwakeService _keepAwake;
+    private readonly ConsoleInputSource _consoleInput;
     private readonly AppSettings _settings;
     private readonly AppState _appState;
     private readonly ErrorReporter _errors;
@@ -49,6 +51,8 @@ public sealed class AppLoop
         GameFocusMonitor gameFocusMonitor,
         ShellNavigationMonitor shellNavigationMonitor,
         CustomButtonService customButtons,
+        KeepAwakeService keepAwake,
+        ConsoleInputSource consoleInput,
         AppSettings settings,
         AppState appState,
         ErrorReporter errors)
@@ -62,6 +66,8 @@ public sealed class AppLoop
         _gameFocusMonitor = gameFocusMonitor;
         _shellNavigationMonitor = shellNavigationMonitor;
         _customButtons = customButtons;
+        _keepAwake = keepAwake;
+        _consoleInput = consoleInput;
         _settings = settings;
         _appState = appState;
         _errors = errors;
@@ -112,6 +118,37 @@ public sealed class AppLoop
             TryRecoverDisplay();
             return true;
         }
+    }
+
+    /// <summary>
+    /// Applies keyboard and mouse input to the menu, so the app can be driven from the desk as well
+    /// as from the couch. Returns whether anything was acted on, which is what forces a redraw.
+    /// </summary>
+    private bool ApplyConsoleInput(bool act)
+    {
+        var acted = false;
+
+        // Always drained, even when ignored, so the console input buffer cannot fill up and start
+        // beeping at the user while the app is driving the desktop.
+        foreach (var input in _consoleInput.Drain())
+        {
+            if (!act)
+            {
+                continue;
+            }
+
+            acted |= input.Kind == ConsoleInputKind.Click
+                ? _navigator.TryClickRow(input.Row)
+                : Dispatched(input.Action);
+        }
+
+        return acted;
+    }
+
+    private bool Dispatched(MenuAction action)
+    {
+        _navigator.Dispatch(action);
+        return action != MenuAction.None;
     }
 
     private void TryRecoverDisplay()
@@ -171,6 +208,10 @@ public sealed class AppLoop
         // app's own UI is in front, so configuring a button cannot trigger it.
         _customButtons.Process(rawTransitions, executeActions: _context == InputContext.DesktopControl);
 
+        // Keeping the machine awake is not desktop control, so it runs before the pause. It is held
+        // back only while a game owns the controller, where moving the mouse would swing the camera.
+        _keepAwake.Update(allowed: !_appState.DesktopInputPaused);
+
         if (_appState.DesktopInputPaused)
         {
             return;
@@ -193,6 +234,7 @@ public sealed class AppLoop
         if (_context == InputContext.DesktopControl)
         {
             _desktopInput.Process(combined, rawTransitions);
+            ApplyConsoleInput(act: false);
             _appState.PrecisionModeActive = _desktopInput.IsPrecisionModeActive;
             _appState.VoiceInputActive = _desktopInput.IsVoiceInputActive;
         }
@@ -204,6 +246,13 @@ public sealed class AppLoop
 
             var action = MenuInputTranslator.ToPrimaryAction(rawTransitions, directionTransitions.Pressed);
             _navigator.Dispatch(action);
+
+            var usedKeyboardOrMouse = ApplyConsoleInput(act: true);
+
+            if (usedKeyboardOrMouse)
+            {
+                action = MenuAction.Confirm;
+            }
 
             var now = DateTime.UtcNow;
             if (action != MenuAction.None || now - _lastMenuRenderUtc >= MenuRefreshInterval)

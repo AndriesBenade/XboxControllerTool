@@ -43,6 +43,8 @@ using var notificationManager = new NotificationManager(settings);
 var audioFeedbackPlayer = new AudioFeedbackPlayer(settings);
 
 var voiceTypingFlyout = new VoiceTypingFlyout();
+var keepAwake = new KeepAwakeService(settings, mouse, new UserActivityMonitor());
+using var consoleInput = new ConsoleInputSource();
 var desktopInput = new DesktopInputController(settings, mouse, keyboard, onScreenKeyboard, voiceTypingFlyout, defaultBrowser, notificationManager, audioFeedbackPlayer);
 
 var consoleWindow = new ConsoleWindowController();
@@ -91,6 +93,8 @@ var appLoop = new AppLoop(
     gameFocusMonitor,
     shellNavigationMonitor,
     customButtons,
+    keepAwake,
+    consoleInput,
     settings,
     appState,
     errors);

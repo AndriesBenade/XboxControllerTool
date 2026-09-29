@@ -43,6 +43,9 @@ public sealed class StatusScreen(AppState appState, AppSettings settings) : IScr
         lines.Add(Pair(
             "STICK DEAD ZONE", Value($"{settings.StickDeadZone * 100:0}%"),
             "SCROLL DEAD ZONE", Value($"{settings.ScrollDeadZone * 100:0}%")));
+        lines.Add(Pair(
+            "KEEP SCREEN ON", AppStateFormatting.OnOff(settings.KeepScreenOnEnabled),
+            "KEEP AWAKE EVERY", Value($"{settings.KeepScreenOnIntervalSeconds}s")));
         lines.Add(Panel.Blank());
 
         lines.Add(Panel.Section("ALERTS"));

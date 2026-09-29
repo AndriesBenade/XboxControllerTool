@@ -29,7 +29,8 @@ public sealed class CustomButtonsScreen : ListMenuScreen
             SelectedIndex == DetectItemIndex,
             SettingControl.Action("Press a spare button to add it"),
             LabelWidth,
-            ControllerButton.A));
+            ControllerButton.A,
+            DetectItemIndex));
 
         LayoutMetrics.PanelPad(lines);
         lines.Add(Panel.Section("DETECTED BUTTONS"));
@@ -49,7 +50,8 @@ public sealed class CustomButtonsScreen : ListMenuScreen
                 SelectedIndex == i + 1,
                 [new ConsoleSegment(_customButtons.DescribeMapping(button.Id), MappingColour(button.Id))],
                 LabelWidth,
-                ControllerButton.A));
+                ControllerButton.A,
+                i + 1));
         }
 
         LayoutMetrics.PanelPad(lines);
