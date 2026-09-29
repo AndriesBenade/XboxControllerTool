@@ -45,6 +45,37 @@ public static class MenuItemRow
             ? ControllerButton.Badge(badgeButton, BadgeWidth)
             : ControllerButton.BadgeSpacer(BadgeWidth));
 
-        return Panel.Row(segments.ToArray()).ForItem(itemIndex);
+        return Panel.Row(segments.ToArray())
+            .ForItem(itemIndex)
+            .WithRegions(AdjustRegions(badgeButton, labelWidth));
+    }
+
+    /// <summary>
+    /// Splits the control area of an adjustable row in two, so clicking its left half decreases and
+    /// its right half increases - the halves the on-screen arrows sit in. A row driven by A instead
+    /// gets no regions, because a plain click on it already activates it.
+    /// </summary>
+    private static IReadOnlyList<ClickRegion> AdjustRegions(string badgeButton, int labelWidth)
+    {
+        if (badgeButton != ControllerButton.LeftRight)
+        {
+            return [];
+        }
+
+        var start = Panel.RowContentColumn + FocusBarWidth + labelWidth;
+        var width = Panel.ContentWidth - FocusBarWidth - labelWidth - BadgeWidth;
+
+        if (width < 2)
+        {
+            return [];
+        }
+
+        var middle = start + (width / 2);
+
+        return
+        [
+            new ClickRegion(start, middle - 1, MenuAction.Left),
+            new ClickRegion(middle, start + width - 1, MenuAction.Right)
+        ];
     }
 }

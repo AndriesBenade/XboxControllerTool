@@ -16,4 +16,7 @@ public sealed class AppState
     public bool DesktopInputPaused { get; set; }
     public string? FocusedGameName { get; set; }
     public string? FocusedShellSurface { get; set; }
+
+    /// <summary>Whether the console handed over keyboard and mouse events, so the menu can use them.</summary>
+    public bool KeyboardAndMouseReady { get; set; }
 }

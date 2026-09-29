@@ -5,6 +5,9 @@ public static class Panel
     public const int Width = 78;
     public const int ContentWidth = Width - 6;
 
+    /// <summary>Console column where a row's content starts, past the left border and its padding.</summary>
+    public const int RowContentColumn = 3;
+
     public static ConsoleLine Top(string title) => Frame(Glyphs.TopLeft, Glyphs.TopRight, title);
 
     public static ConsoleLine Section(string title) => Frame(Glyphs.TeeLeft, Glyphs.TeeRight, title);

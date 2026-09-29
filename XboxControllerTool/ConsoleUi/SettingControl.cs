@@ -9,10 +9,14 @@ public static class SettingControl
         var ratio = Math.Clamp((value - min) / (max - min), 0.0, 1.0);
         var filled = (int)Math.Round(ratio * GaugeWidth);
 
+        // The arrows are what make it obvious the row can be changed, and they give the mouse
+        // something to aim at rather than leaving clicking a slider a secret.
         return
         [
+            new ConsoleSegment("<  ", ConsoleTheme.Label),
             new ConsoleSegment(new string(Glyphs.GaugeFilled, filled), focused ? ConsoleTheme.Focus : ConsoleTheme.Text),
             new ConsoleSegment(new string(Glyphs.GaugeEmpty, GaugeWidth - filled), ConsoleTheme.PanelFrame),
+            new ConsoleSegment("  >", ConsoleTheme.Label),
             new ConsoleSegment("  " + displayText.PadLeft(5), ConsoleTheme.Value)
         ];
     }

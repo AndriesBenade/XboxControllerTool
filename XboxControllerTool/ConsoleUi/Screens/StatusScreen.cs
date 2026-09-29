@@ -46,6 +46,9 @@ public sealed class StatusScreen(AppState appState, AppSettings settings) : IScr
         lines.Add(Pair(
             "KEEP SCREEN ON", AppStateFormatting.OnOff(settings.KeepScreenOnEnabled),
             "KEEP AWAKE EVERY", Value($"{settings.KeepScreenOnIntervalSeconds}s")));
+        lines.Add(Pair(
+            "KEYBOARD + MOUSE", AppStateFormatting.OnOff(appState.KeyboardAndMouseReady, "READY", "UNAVAILABLE"),
+            string.Empty, Value(string.Empty)));
         lines.Add(Panel.Blank());
 
         lines.Add(Panel.Section("ALERTS"));

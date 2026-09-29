@@ -58,11 +58,20 @@ public sealed class ScreenNavigator
 
         foreach (var region in line.Regions)
         {
-            if (column >= region.StartColumn && column <= region.EndColumn)
+            if (column < region.StartColumn || column > region.EndColumn)
             {
-                Dispatch(region.Action);
-                return true;
+                continue;
             }
+
+            // Adjusting acts on whatever is highlighted, so the clicked row has to be highlighted
+            // first or clicking one row would change a different one.
+            if (line.ItemIndex >= 0)
+            {
+                Current.SelectItem(line.ItemIndex);
+            }
+
+            Dispatch(region.Action);
+            return true;
         }
 
         if (line.ItemIndex < 0)

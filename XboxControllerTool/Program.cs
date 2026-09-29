@@ -59,6 +59,7 @@ consoleWindow.CenterOnScreen();
 consoleWindow.Minimize();
 
 var appState = new AppState();
+appState.KeyboardAndMouseReady = consoleInput.IsAvailable;
 var foregroundWindowWatcher = new ForegroundWindowWatcher();
 var gameFocusMonitor = new GameFocusMonitor(foregroundWindowWatcher, new GameDetector());
 var shellNavigationMonitor = new ShellNavigationMonitor(foregroundWindowWatcher, new ShellGamepadSurfaceDetector());
