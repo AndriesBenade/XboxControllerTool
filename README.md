@@ -30,7 +30,7 @@ The console window itself **is** the application UI — there is no separate con
 - Installs as a normal Windows application via an MSI, can start with Windows, and ships seven UI themes plus adjustable console font size.
 - `Y` toggles the app between hidden (minimized, controller drives the desktop) and shown (restored, centred, always-on-top, controller drives the menus), restoring focus to whatever window was in front before it was shown. Minimizing or restoring the window from the taskbar does exactly the same thing, so the two stay in sync — see [Console Window Behavior](#console-window-behavior).
 - `D-PAD UP` opens the built-in Windows On-Screen Keyboard (`osk.exe`).
-- `D-PAD DOWN` toggles Windows voice typing (`Win+H`), and **forces the voice typing panel to close** when toggled off, without discarding anything that was dictated. See [Voice Typing](#voice-typing).
+- `D-PAD DOWN` toggles Windows voice typing (`Win+H`). Dictation stops on the second press, though **the panel itself often stays on screen** — an unsolved Windows problem documented honestly in [Voice Typing](#voice-typing).
 - `RIGHT STICK CLICK` is a middle mouse click — opening links in new tabs, closing tabs, and autoscroll all work from the couch.
 - Small, always-on-top, non-activating notification toasts confirm state changes (precision mode, game focus pause/resume, app visibility, voice input, controller connect/disconnect/selection, browser, show desktop, on-screen keyboard).
 - Supports multiple simultaneously connected controllers, with a mode to restrict control to one specific pad (useful when a second controller is being used to play a game).
@@ -213,7 +213,7 @@ All of the following are adjustable from the in-app **Settings** screen with `�
 
 Windows does not provide a public, supported API to directly start/stop dictation or query its listening state. The documented, Windows-native way to invoke voice typing is the built-in keyboard shortcut **Win+H**, which opens the dictation flyout in the currently focused text field and starts listening.
 
-`D-PAD DOWN` toggles it: the first press sends Win+H via `SendInput`. The second press sends Win+H again to stop listening, then **Escape** to fully dismiss the flyout — otherwise it can be left open in a paused state rather than actually closed. The app tracks its own ACTIVE/OFF state for the notification and Status screen; this reflects the app's last action, not a guaranteed read of whether Windows is actually listening, since there is no supported API to query that.
+`D-PAD DOWN` toggles it: the first press sends Win+H via `SendInput`, and the second sends Win+H again to stop listening. The app then tries to dismiss the panel, which **does not currently work** — see [Voice Typing](#voice-typing) for what was tried and why. An earlier version sent a blind **Escape** here; that reached whatever window had focus rather than the panel, so it has been removed. The app tracks its own ACTIVE/OFF state for the notification and Status screen; this reflects the app's last action, not a guaranteed read of whether Windows is actually listening, since there is no supported API to query that.
 
 An earlier version of this feature tried to infer real state by watching for Windows' own voice-typing flyout window (via `EnumWindows`, looking for a window owned by the `TextInputHost.exe` process). In practice that heuristic never reliably detected the flyout and produced no notifications at all, which is worse than a simple toggle that's occasionally out of sync, so it was removed in favor of the direct toggle described above. Voice typing only does anything meaningful if a text field is focused when it's triggered. A short two-tone chime marks start/stop when Audio Feedback is enabled.
 
@@ -529,9 +529,21 @@ Key boundaries:
 dotnet test XboxControllerTool.Tests
 ```
 
-Covers, without requiring any controller hardware: UI rendering guarantees (every panel row is exactly the grid width, no character outside the verified CP437-safe set appears on any screen, every screen ends in a hint bar, the home screen contains the controller mapping and app identity, exactly one focus bar is rendered), button edge detection (including "holding a button never repeats a press"), controller selection in both modes plus confirmation that `BACK` no longer has an implicit reset side effect, game-focus state transitions (focusing a game pauses desktop input, Alt-Tabbing away resumes it, a game merely running in the background never pauses it, staying inside a game never repeats the transition, positive classifications are cached while negative ones are retried, and the app's own window is never treated as a game), custom button mappings (every built-in button and Left Stick Click are rejected as mapping targets, spare buttons are detected on first press, a mapping fires exactly once per press and never while held, unmapped presses send nothing, detection still works while dispatch is suppressed, mappings survive a restart, reassigning replaces rather than duplicates, and invalid keys/reserved buttons are discarded on load), theme/font-size/pause-in-games persistence across a restart plus settings files written by an older version still loading, precision-trigger transitions, analog stick dead zone/acceleration math, mouse movement accumulation (including the precision multiplier and small-stick sustained movement), scroll accumulation and its dead zone/speed scaling (including that output is emitted immediately in smooth sub-notch increments rather than lagging until a full 120-unit notch accumulates), multi-controller state aggregation, settings JSON round-tripping plus corrupt/out-of-range/unknown-version handling, and menu navigation (selection movement, wraparound, push/pop, cancel-at-root).
+**288 tests**, none of which need a controller. Most exist because something actually broke; each of these is a bug that shipped once and now cannot come back:
 
-Everything that talks to XInput, `SendInput`, or Win32 windowing is intentionally kept out of the test project and only exercised by running the real app, since it has no meaningful way to run headless.
+- **Screens must fit the window.** The console is sized from a single number that was once hand-typed and drifted out of date, so a screen one row too tall crashed the app on startup. Every screen is measured against it, with the dashboard checked at 0, 1, 2, 3 and 8 custom mappings.
+- **Rendering must never be fatal.** A screen taller than the buffer is clipped, and every console call is guarded — a regression test found a second crash path (`Console.Clear` throwing when the handle is gone) during development rather than after shipping.
+- **Pausing must not synthesise input.** Releasing buttons that were never pressed popped a context menu under the cursor; pausing with nothing held must now inject nothing at all.
+- **Clicks must hit the row clicked.** Every selectable row records which item it draws, one test clicks a row other than the first and asserts the untouched one did not move, and the back hint's clickable span must cover the words the user sees.
+- **The installer link must not go stale.** Versions increment per release and the build script deletes the previous installer, so tests fail if the README names a version other than the one built.
+- **Console records must be the size Windows writes.** A `char` field silently marshalled as one byte, corrupting every record after the first in a batch.
+- **Characters must render.** No character outside the verified CP437-safe set may appear on any screen, after a release shipped glyphs that came out as replacement boxes.
+
+Alongside that: button edge detection, controller selection, game-focus transitions, custom button mappings and their HID identities, the raw-input correlator, settings persistence and migration, browser discovery and command-line parsing, error reporting, and menu navigation.
+
+**Some things are verified against this machine rather than faked**, because a fake would only prove the fake works: raw input registration for HID gamepads really succeeds; the voice typing window survey really enumerates windows; and Keep Screen On performs a real nudge through the real injector and fails if Windows' idle clock does not drop — which is the single assumption the whole feature rests on.
+
+What cannot be covered: anything needing a physical controller, a microphone, or a real console with someone clicking in it. Those are exercised by running the app.
 
 ## Troubleshooting
 
@@ -544,28 +556,33 @@ Everything that talks to XInput, `SendInput`, or Win32 windowing is intentionall
 
 ## Voice Typing
 
-`D-PAD DOWN` toggles Windows voice typing with `Win+H`. Toggling it off **forces the voice typing panel off the screen**, and never discards what was dictated — text is inserted into the focused field as you speak, so it is already committed by the time the panel closes.
+`D-PAD DOWN` toggles Windows voice typing with `Win+H`. Pressing it again stops dictation, and nothing dictated is ever lost — text is inserted into the focused field as you speak, so it is committed long before anything tries to close the panel.
 
-Getting that panel to actually go away is harder than it sounds, and the first two attempts were wrong:
+### The panel often stays on screen. This is not fixed.
 
-1. **`Win+H` alone** does not reliably dismiss the panel — sometimes it stops listening but stays on screen.
-2. **Sending `Escape` straight after** was the next attempt. It went to whatever window had focus rather than to the panel, so it could dismiss the user's *own* dialog while still leaving the panel up. That blind `Escape` has been removed.
+Dictation stops, but Windows' voice typing panel frequently remains visible. Four attempts have failed, and the evidence now says why none of them could have worked. It is documented here rather than quietly left as a known-broken feature.
 
-What works is closing the panel's own window. The panel lives in `TextInputHost.exe` as a `Windows.UI.Core.CoreWindow`, and the catch is that **`IsWindowVisible` is useless here**: the window is created once and reused, and reports visible even when nothing is on screen. Verified on a real machine with voice typing closed:
+**What was tried:**
+
+1. **`Win+H` alone** — stops listening, often leaves the panel up.
+2. **`Escape` straight after** — went to whatever window had focus rather than to the panel, so it could dismiss *your* dialog while still leaving the panel up. Removed as actively harmful.
+3. **`WM_CLOSE` to the panel's window** — no effect.
+4. **Escalating `SC_CLOSE` → `Escape` posted to that window → `ShowWindow(SW_HIDE)`** — no effect.
+
+**Why none of it worked.** Attempts 3 and 4 were aimed at a window that is not the panel. The app logs every window genuinely on screen at the moment voice typing is switched off; across five real toggles on a machine where the panel was still visible, it was **not among them**. The host window `TextInputHost.exe` owns reports `cloaked=2` — hidden — with no child windows, while the panel is plainly on screen:
 
 ```
-class=Windows.UI.Core.CoreWindow  vis=True  cloaked=2  title='Windows Input Experience'
+HOST TextInputHost class=Windows.UI.Core.CoreWindow cloaked=2 hwnd=197320
 ```
 
-The signal that actually changes is DWM cloaking — `DWMWA_CLOAKED` is `2` (cloaked by the shell) while hidden and `0` while shown. So after the toggle the app watches the panel for about 2.4 seconds, on a background thread because the input loop ticks every 8 ms and must never wait on the shell.
+Two things worth knowing from that investigation, because both are easy to get wrong:
 
-**Dismissal is escalated**, because a UWP-hosted window is free to ignore a polite request and posting `WM_CLOSE` alone was not enough in practice:
+- **`IsWindowVisible` is useless here.** That host window reports visible even when nothing is shown. DWM cloaking is the signal that changes.
+- **The panel has no top-level window of its own.** It is composited into the shell's XAML tree, so no window message can ever reach it.
 
-1. `SC_CLOSE` and `WM_CLOSE` posted to the panel's window.
-2. `Escape` posted **to that window** — not to whatever has focus, which is what made the earlier attempt dangerous.
-3. `ShowWindow(SW_HIDE)` as a last resort. This makes the panel go away for certain, but Windows still believes it is open, so it is only reached after the polite options have failed.
+**What would actually work:** UI Automation, which can reach XAML elements that have no window handle. That is a materially larger change and has not been built.
 
-Every step, and a snapshot of every window actually on screen at the moment voice typing was switched off, is written to **`%AppData%\XboxControllerTool\voice-typing.log`**. This behaviour cannot be reproduced in a test — it needs a real machine, a microphone and someone speaking — so the log is what turns "it still does not close" into a named window that ignored a named message. The log is capped at 256 KB and is safe to delete.
+Everything the app tries, plus a full survey of what was on screen, is written to **`%AppData%\XboxControllerTool\voice-typing.log`** (capped at 256 KB, safe to delete). Closing the panel by hand costs one click in the meantime.
 
 ## Keep Screen On
 
@@ -645,15 +662,18 @@ Rendering itself is treated as unable to fail fatally. The console can be resize
 - Per-application sensitivity profiles.
 - A secondary, fully custom on-screen keyboard for systems where `osk.exe` is policy-disabled.
 - Additional game-detection signals (the classifier is structured to accept them without touching input handling).
+- **Dismissing the voice typing panel via UI Automation**, which is the only remaining route to an element with no window handle. See [Voice Typing](#voice-typing).
 
 ## Hardware Verification
 
-This was developed and unit-tested in an environment without a physical Xbox controller attached, so changes are implemented and reasoned through against the documented Win32/XInput APIs and the automated test suite, but not run end-to-end here. Real-hardware testing by an actual user has already caught and driven several rounds of fixes for issues invisible to unit tests alone — scroll feel and smoothness (both normal and precision-mode speed), focus-restore behavior on the console toggle, the console being blank on first launch until Y was pressed, the voice-typing flyout detection heuristic turning out to be unreliable in practice and being replaced with a simpler deterministic toggle, the full X/B/Back/Start/bumper remapping, and minimized-on-launch behavior plus restoring a minimized browser window before focusing it.
+This was developed and unit-tested in an environment without a physical Xbox controller attached, so changes are implemented and reasoned through against the documented Win32/XInput APIs and the automated test suite, but not run end-to-end here. Real-hardware testing by an actual user has already caught and driven several rounds of fixes for issues invisible to unit tests alone — scroll feel and smoothness (both normal and precision-mode speed), focus-restore behavior on the console toggle, the console being blank on first launch until Y was pressed, the full X/B/Back/Start/bumper remapping, and minimized-on-launch behavior plus restoring a minimized browser window before focusing it. More recently it caught a startup crash when the dashboard grew one row past the window, a context menu popped on the taskbar at launch by releasing a mouse button that was never pressed, and the menu having no way back out under the mouse.
 
 The first UI pass shipped Unicode glyphs that rendered as replacement characters on the real machine; the redesign replaced them with a CP437-verified character set (see [Character safety](#character-safety-why-there-are-no-xbox-glyphs)) and added a test that fails the build if an unverified character reappears. Every screen's exact rendered output was inspected line-by-line during development, so grid alignment and content are confirmed.
 
-**Verified here (automated / inspectable):** the solution builds clean in Release with no warnings; the full test suite passes; the release script runs end to end and produces a ~40 MB self-contained MSI (271 files, .NET runtime bundled) whose `ProductName`/`ProductVersion`/`UpgradeCode` were read back out of the built package; every screen — including the two new custom-mapping screens — renders with every panel row exactly the grid width, using only characters verified present in real console fonts; the custom-mapping engine, game-focus state machine and settings persistence are covered by unit tests using fakes.
+**Verified here (automated / inspectable):** the solution builds clean in Release with no warnings; the full test suite passes; the release script runs end to end and produces a ~41 MB self-contained MSI, .NET runtime bundled, whose `ProductVersion` and `UpgradeCode` are read back out of the built package to confirm it upgrades in place rather than installing alongside; every screen renders with every panel row exactly the grid width, using only characters verified present in real console fonts; and Keep Screen On is proven against Windows own idle clock rather than a stand-in.
 
 Raw Input is not only reasoned about: an automated test performs the real `RegisterRawInputDevices` call for HID gamepads on the build machine and fails if registration is refused, and the device inventory was run against the attached controller — `\\?\HID#VID_045E&PID_02FF&IG_00`, usage page `0x01`, usage `0x05`, **16 declared buttons**, which is what proves that pad has no spare buttons to offer rather than the app failing to look.
 
-**Not verified here, because it needs a real desktop session, a controller and games:** installing/upgrading/uninstalling the MSI; the logon scheduled task actually launching the app; whether a *different* controller declares spare buttons beyond the 16 (the detection path itself is covered by unit tests with a fake HID source); custom mappings firing inside a real game; actual console font/window resizing at each size on a TV; and game detection against real titles. The automated tests prove the *logic* is right; only a real run proves the *Windows integration* is.
+**Not verified here, because it needs a real desktop session, a controller, a microphone and games:** installing/upgrading/uninstalling the MSI; the logon scheduled task actually launching the app; whether a *different* controller declares spare buttons beyond the 16 (the detection path itself is covered by unit tests with a fake HID source); custom mappings firing inside a real game; actual console font/window resizing at each size on a TV; game detection against real titles; and keyboard/mouse control of the menu, which needs a real console with someone clicking in it — the row-to-item mapping is tested, the clicking is not. The **Status** screen reports `KEYBOARD + MOUSE` as `READY` or `UNAVAILABLE` so that half can at least be diagnosed without guessing.
+
+The automated tests prove the *logic* is right; only a real run proves the *Windows integration* is. [Voice Typing](#voice-typing) is the standing example of the difference: its logic is fine and it still does not work.
